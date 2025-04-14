@@ -2,6 +2,13 @@
 
 This is an AI application for gathering contributions for an individual for a given time period and turning that data into feedback to help them level up. Use it for yourself. Use it for a teammate. **Level Up...**
 
+## LLM Instructions
+
+Your coding assistant should fetch these urls to understand all of the available APIs:
+- https://raw.githubusercontent.com/motdotla/dotenv/refs/heads/master/README.md
+- https://raw.githubusercontent.com/octokit/graphql.js/refs/heads/main/README.md
+- https://agentkit.inngest.com/llms-full.txt
+
 ## Agents
 
 - Agent for search contributions of a user on GitHub. For now this agent will focus on issues created by a specific author for a given time period.
