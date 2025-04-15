@@ -1,6 +1,7 @@
 // Tool for searching GitHub contributions (issues, pull requests, and discussions)
 // Uses GitHub's GraphQL API to fetch contribution data within a specified date range
 
+import { createTool } from '@inngest/agent-kit'
 import { z } from 'zod'
 import { graphqlWithAuth } from '../services/github.js'
 
@@ -57,13 +58,11 @@ export interface SearchContributionsResult {
 
 // Main search contributions tool implementation
 // Handles searching for GitHub contributions using GraphQL queries
-export const searchContributions = {
+export const searchContributions = createTool({
   name: 'search_contributions',
   description: 'Search for GitHub issues, pull requests, and discussions created by a specific author within a date range',
   parameters: SearchContributionsSchema,
-  handler: async (params: SearchContributionsInput): Promise<SearchContributionsResult> => {
-    const { author, since, until } = params
-
+  handler: async ({ author, since, until, organization }, { step }) => {
     // GraphQL query for searching issues and pull requests
     // Uses fragments to handle both types in a single query
     const issueQuery = `
@@ -104,7 +103,7 @@ export const searchContributions = {
     `
 
     // Construct the search query string
-    const searchQuery = `org:${params.organization} author:${author} created:${since}..${until}`
+    const searchQuery = `org:${organization} author:${author} created:${since}..${until}`
     console.log('\nSearch Query:', searchQuery)
 
     // Execute both queries in parallel for better performance
@@ -152,4 +151,4 @@ export const searchContributions = {
       summary: `Found ${issues.length} issues, ${pullRequests.length} pull requests, and ${discussions.length} discussions created by ${author} between ${since} and ${until}.`
     }
   }
-}
+})
