@@ -1,6 +1,6 @@
-import { fetcherAgent } from './agents/fetcher.js'
+import { searchAgent } from './agents/search.js'
 import { analyzerAgent } from './agents/analyzer.js'
-import { SearchIssuesResult } from './tools/search-issues.js'
+import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
 
 async function main() {
@@ -9,25 +9,32 @@ async function main() {
   const thirtyDaysAgo = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString()
   const now = new Date().toISOString()
 
-  // Step 1: Fetch issues
-  logger.info('Fetching Issues...')
-  const fetchResult = await fetcherAgent.run(`Use the search_issues tool with these parameters:
+  // Step 1: Search contributions
+  logger.info('Searching Contributions...')
+  const searchResult = await searchAgent.run(`Use the search_contributions tool with these parameters:
 - author: jonmagic
 - since: ${thirtyDaysAgo}
 - until: ${now}`)
 
-  // Extract issues from fetch result
-  let issues: Array<{ title: string; url: string }> = []
-  for (const toolCall of fetchResult.toolCalls) {
+  // Extract contributions from search result
+  let contributions: Array<{ title: string; url: string }> = []
+  for (const toolCall of searchResult.toolCalls) {
     if (toolCall.role === 'tool_result' && toolCall.content) {
       try {
-        const { data } = toolCall.content as { data: SearchIssuesResult }
+        const { data } = toolCall.content as { data: SearchContributionsResult }
         logger.info(data.summary)
-        issues = data.issues
-        if (issues.length > 0) {
-          logger.info('Found Issues:')
-          for (const issue of issues) {
-            logger.info(`- ${issue.title} (${issue.url})`)
+
+        // Combine all contribution types
+        contributions = [
+          ...data.issues.map(issue => ({ title: issue.title, url: issue.url })),
+          ...data.pull_requests.map(pr => ({ title: pr.title, url: pr.url })),
+          ...data.discussions.map(discussion => ({ title: discussion.title, url: discussion.url }))
+        ]
+
+        if (contributions.length > 0) {
+          logger.info('Found Contributions:')
+          for (const contribution of contributions) {
+            logger.info(`- ${contribution.title} (${contribution.url})`)
           }
         }
       } catch (error) {
@@ -37,16 +44,16 @@ async function main() {
     }
   }
 
-  if (issues.length === 0) {
-    logger.info('No issues found to analyze.')
+  if (contributions.length === 0) {
+    logger.info('No contributions found to analyze.')
     return
   }
 
-  // Step 2: Analyze issues
-  logger.info('Analyzing Issues...')
-  const analysisResult = await analyzerAgent.run(`Please analyze these GitHub issue titles:
+  // Step 2: Analyze contributions
+  logger.info('Analyzing Contributions...')
+  const analysisResult = await analyzerAgent.run(`Please analyze these GitHub contribution titles:
 
-${issues.map(issue => `- ${issue.title}`).join('\n')}
+${contributions.map(contribution => `- ${contribution.title}`).join('\n')}
 
 Provide detailed feedback on their clarity, best practices, and consistency.`)
 
