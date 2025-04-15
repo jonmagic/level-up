@@ -10,5 +10,6 @@ export const env = {
   },
   github: {
     token: process.env.GITHUB_TOKEN!
-  }
+  },
+  debug: process.env.DEBUG === 'true'
 }
