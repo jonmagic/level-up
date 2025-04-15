@@ -1,8 +1,16 @@
+// GitHub Issue Analyzer Agent
+// An AI agent specialized in analyzing GitHub contribution titles
+// Provides detailed feedback on title quality, best practices, and consistency
+
 import { createAgent } from '@inngest/agent-kit'
 import { defaultModel } from '../services/models.js'
 
+// Creates and exports a specialized agent for analyzing GitHub contribution titles
+// The agent is configured with a detailed system prompt for comprehensive analysis
 export const analyzerAgent = createAgent({
+  // Unique identifier for the agent
   name: 'issue-analyzer',
+  // System prompt defining the agent's role and analysis criteria
   system: `You are an expert at analyzing GitHub issue titles and providing constructive feedback.
 When given a list of issue titles to analyze, provide a detailed analysis focusing on:
 
@@ -29,6 +37,8 @@ For each category, provide:
 - Concrete suggestions for better alternatives
 
 Be constructive and specific in your feedback, using actual examples to illustrate your points.`,
+  // AI model to use for processing requests
   model: defaultModel,
+  // No additional tools needed as this agent focuses on analysis
   tools: []
 })

@@ -1,15 +1,25 @@
+// Main entry point for the Peer Feedback Application
+// This application analyzes GitHub contributions and provides feedback on their quality
+// and adherence to best practices.
+
 import { searchAgent } from './agents/search.js'
 import { analyzerAgent } from './agents/analyzer.js'
 import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
 
+// Main application function that orchestrates the contribution analysis process
+// 1. Searches for recent GitHub contributions
+// 2. Extracts relevant contribution data
+// 3. Analyzes the contributions using AI
+// 4. Outputs detailed feedback
 async function main() {
   logger.info('Peer Feedback Application')
 
+  // Calculate date range for contribution search (last 2 years)
   const thirtyDaysAgo = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString()
   const now = new Date().toISOString()
 
-  // Step 1: Search contributions
+  // Step 1: Search contributions using the search agent
   logger.info('Searching Contributions...')
   const searchResult = await searchAgent.run(`Use the search_contributions tool with these parameters:
 - organization: open-truss
@@ -25,7 +35,7 @@ async function main() {
         const { data } = toolCall.content as { data: SearchContributionsResult }
         logger.info(data.summary)
 
-        // Combine all contribution types
+        // Combine all contribution types into a single array
         contributions = [
           ...data.issues.map(issue => ({ title: issue.title, url: issue.url })),
           ...data.pull_requests.map(pr => ({ title: pr.title, url: pr.url })),
@@ -50,7 +60,7 @@ async function main() {
     return
   }
 
-  // Step 2: Analyze contributions
+  // Step 2: Analyze contributions using the analyzer agent
   logger.info('Analyzing Contributions...')
   const analysisResult = await analyzerAgent.run(`Please analyze these GitHub contribution titles:
 
@@ -61,7 +71,7 @@ Provide detailed feedback on their clarity, best practices, and consistency.`)
   logger.info('Analysis Results:')
   logger.info('----------------')
 
-  // Print analysis
+  // Print analysis results
   for (const message of analysisResult.output) {
     if (message.role === 'assistant' && 'content' in message && message.content) {
       const content = typeof message.content === 'string'
@@ -72,4 +82,5 @@ Provide detailed feedback on their clarity, best practices, and consistency.`)
   }
 }
 
+// Execute main function and handle any uncaught errors
 main().catch(error => logger.error('Application error:', error))
