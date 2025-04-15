@@ -3,29 +3,36 @@
 // and adherence to best practices.
 
 import { searchAgent } from './agents/search.js'
-import { analyzerAgent } from './agents/analyzer.js'
+import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
 import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
 
 // Main application function that orchestrates the contribution analysis process
 // 1. Searches for recent GitHub contributions
 // 2. Extracts relevant contribution data
-// 3. Analyzes the contributions using AI
-// 4. Outputs detailed feedback
+// 3. Analyzes each contribution individually using AI
+// 4. Outputs detailed feedback for each contribution
 async function main() {
-  logger.info('Peer Feedback Application')
+  logger.info('Starting Peer Feedback Application')
+  logger.debug('Initializing contribution analysis process')
 
-  // Calculate date range for contribution search (last 2 years)
-  const thirtyDaysAgo = new Date(Date.now() - 730 * 24 * 60 * 60 * 1000).toISOString()
-  const now = new Date().toISOString()
+  // Configuration
+  const organization = 'open-truss'
+  const user = 'jonmagic'
+  const daysToAnalyze = 730 // 2 years
+
+  // Calculate date range for contribution search
+  const startDate = new Date(Date.now() - daysToAnalyze * 24 * 60 * 60 * 1000).toISOString()
+  const endDate = new Date().toISOString()
+  logger.debug(`Searching contributions between ${startDate} and ${endDate}`)
 
   // Step 1: Search contributions using the search agent
-  logger.info('Searching Contributions...')
+  logger.info(`Searching for recent contributions by ${user}...`)
   const searchResult = await searchAgent.run(`Use the search_contributions tool with these parameters:
-- organization: open-truss
-- author: jonmagic
-- since: ${thirtyDaysAgo}
-- until: ${now}
+- organization: ${organization}
+- author: ${user}
+- since: ${startDate}
+- until: ${endDate}
 - limit: 3`)
 
   // Extract contributions from search result
@@ -44,7 +51,7 @@ async function main() {
         ]
 
         if (contributions.length > 0) {
-          logger.info('Found Contributions:')
+          logger.info(`Found ${contributions.length} contributions to analyze:`)
           for (const contribution of contributions) {
             logger.info(`- ${contribution.title} (${contribution.url})`)
           }
@@ -61,27 +68,54 @@ async function main() {
     return
   }
 
-  // Step 2: Analyze contributions using the analyzer agent
-  logger.info('Analyzing Contributions...')
-  const analysisResult = await analyzerAgent.run(`Please analyze these GitHub contribution titles:
+  // Step 2: Analyze each contribution individually
+  logger.info('Starting individual contribution analysis...')
+  logger.debug(`Processing ${contributions.length} contributions sequentially`)
 
-${contributions.map(contribution => `- ${contribution.title}`).join('\n')}
+  for (const [index, contribution] of contributions.entries()) {
+    logger.info(`\nAnalyzing contribution ${index + 1}/${contributions.length}:`)
+    logger.info(`Title: ${contribution.title}`)
+    logger.info(`URL: ${contribution.url}`)
 
-Provide detailed feedback on their clarity, best practices, and consistency.`)
+    try {
+      const analysisResult = await contributionAnalyzerAgent.run(`Please analyze this GitHub contribution:
 
-  logger.info('Analysis Results:')
-  logger.info('----------------')
+Title: ${contribution.title}
+URL: ${contribution.url}
+User: ${user}
+Organization: ${organization}
 
-  // Print analysis results
-  for (const message of analysisResult.output) {
-    if (message.role === 'assistant' && 'content' in message && message.content) {
-      const content = typeof message.content === 'string'
-        ? message.content
-        : message.content.map(c => c.text).join('')
-      logger.info(content)
+Provide detailed feedback on the user's role and impact in this contribution. Consider:
+- Their specific role in this contribution (author, reviewer, commenter, etc.)
+- The quality and effectiveness of their contribution
+- How their work aligns with project goals
+- Areas for improvement and growth
+
+Focus on providing role-specific feedback and actionable suggestions.`)
+
+      logger.info('\nAnalysis Results:')
+      logger.info('----------------')
+
+      // Print analysis results
+      for (const message of analysisResult.output) {
+        if (message.role === 'assistant' && 'content' in message && message.content) {
+          const content = typeof message.content === 'string'
+            ? message.content
+            : message.content.map(c => c.text).join('')
+          logger.info(content)
+        }
+      }
+    } catch (error) {
+      logger.error(`Error analyzing contribution "${contribution.title}":`, error as Error)
+      logger.debug('Contribution details:', contribution)
     }
   }
+
+  logger.info('\nContribution analysis complete!')
 }
 
 // Execute main function and handle any uncaught errors
-main().catch(error => logger.error('Application error:', error))
+main().catch(error => {
+  logger.error('Application error:', error)
+  process.exit(1)
+})
