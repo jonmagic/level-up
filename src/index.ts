@@ -25,7 +25,8 @@ async function main() {
 - organization: open-truss
 - author: jonmagic
 - since: ${thirtyDaysAgo}
-- until: ${now}`)
+- until: ${now}
+- limit: 3`)
 
   // Extract contributions from search result
   let contributions: Array<{ title: string; url: string }> = []

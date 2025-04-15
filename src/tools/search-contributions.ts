@@ -12,7 +12,17 @@ const SearchContributionsSchema = z.object({
   author: z.string().describe('GitHub username of the author'),
   since: z.string().describe('ISO date string for start of search range'),
   until: z.string().describe('ISO date string for end of search range'),
-  organization: z.string().describe('GitHub organization to search within')
+  organization: z.string().describe('GitHub organization to search within'),
+  limit: z.object({
+    type: z.literal('number'),
+    description: z.literal('Maximum number of results to return'),
+    nullable: z.literal(true),
+    value: z.object({
+      type: z.literal('number'),
+      description: z.literal('The actual limit value'),
+      nullable: z.literal(true)
+    }).nullable()
+  }).nullable()
 })
 
 // Type definition for search contribution input parameters
@@ -28,6 +38,10 @@ interface GitHubSearchResponse {
       createdAt: string
       __typename: string
     }>
+    pageInfo: {
+      hasNextPage: boolean
+      endCursor: string
+    }
   }
 }
 
@@ -58,14 +72,12 @@ export const searchContributions = createTool({
   name: 'search_contributions',
   description: 'Search for GitHub issues, pull requests, and discussions created by a specific author within a date range',
   parameters: SearchContributionsSchema,
-  handler: async ({ author, since, until, organization }, { step }) => {
-    logger.debug('\nSearch Contributions Tool - Starting with parameters:', { author, since, until, organization })
-
+  handler: async ({ author, since, until, organization, limit }) => {
     // GraphQL query for searching issues and pull requests
     // Uses fragments to handle both types in a single query
     const issueQuery = `
-      query($searchQuery: String!) {
-        search(query: $searchQuery, type: ISSUE, first: 100) {
+      query($searchQuery: String!, $first: Int, $after: String) {
+        search(query: $searchQuery, type: ISSUE, first: $first, after: $after) {
           nodes {
             ... on Issue {
               title
@@ -80,14 +92,18 @@ export const searchContributions = createTool({
               __typename
             }
           }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
         }
       }
     `
 
     // GraphQL query for searching discussions
     const discussionQuery = `
-      query($searchQuery: String!) {
-        search(query: $searchQuery, type: DISCUSSION, first: 100) {
+      query($searchQuery: String!, $first: Int, $after: String) {
+        search(query: $searchQuery, type: DISCUSSION, first: $first, after: $after) {
           nodes {
             ... on Discussion {
               title
@@ -95,6 +111,10 @@ export const searchContributions = createTool({
               createdAt
               __typename
             }
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
           }
         }
       }
@@ -104,10 +124,20 @@ export const searchContributions = createTool({
     const searchQuery = `org:${organization} author:${author} created:${since}..${until}`
     logger.debug('\nSearch Query:', searchQuery)
 
+    // Extract the limit value from the object structure
+    const limitValue = Number(limit?.value) || 100
+    logger.debug('\nLimit value:', limitValue)
+
     // Execute both queries in parallel for better performance
     const [issueResponse, discussionResponse] = await Promise.all([
-      graphqlWithAuth<GitHubSearchResponse>(issueQuery, { searchQuery }),
-      graphqlWithAuth<GitHubSearchResponse>(discussionQuery, { searchQuery })
+      graphqlWithAuth<GitHubSearchResponse>(issueQuery, {
+        searchQuery,
+        first: limitValue
+      }),
+      graphqlWithAuth<GitHubSearchResponse>(discussionQuery, {
+        searchQuery,
+        first: limitValue
+      })
     ])
 
     logger.debug('\nRaw GraphQL Responses:', JSON.stringify({

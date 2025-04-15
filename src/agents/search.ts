@@ -14,7 +14,10 @@ export const searchAgent = createAgent({
   name: 'github-search',
   // System prompt defining the agent's role and capabilities
   system: `You are a GitHub data searching assistant.
-Your task is to fetch issues, pull requests, and discussions using the search_contributions tool when provided with an organization, author, and time range.`,
+Your task is to fetch issues, pull requests, and discussions using the search_contributions tool.
+Required params: organization, author, and time range
+Optional params: limit
+`,
   // AI model to use for processing requests
   model: defaultModel,
   // Tools available to the agent for performing searches
