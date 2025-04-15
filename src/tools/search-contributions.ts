@@ -4,6 +4,7 @@
 import { createTool } from '@inngest/agent-kit'
 import { z } from 'zod'
 import { graphqlWithAuth } from '../services/github.js'
+import { logger } from '../services/logger.js'
 
 // Schema for validating search contribution parameters
 // Defines the required fields and their types for contribution searches
@@ -17,26 +18,21 @@ const SearchContributionsSchema = z.object({
 // Type definition for search contribution input parameters
 export type SearchContributionsInput = z.infer<typeof SearchContributionsSchema>
 
-// Base interface for GitHub contribution items
-// Represents common fields across issues, pull requests, and discussions
-interface GitHubContribution {
-  title: string
-  url: string
-  createdAt: string
-  __typename: string
-}
-
-// Interface for GitHub GraphQL search response
-// Wraps the search results in a nodes array
+// Interface for GitHub search response
+// Defines the structure of the response from GitHub's GraphQL API
 interface GitHubSearchResponse {
   search: {
-    nodes: GitHubContribution[]
+    nodes: Array<{
+      title: string
+      url: string
+      createdAt: string
+      __typename: string
+    }>
   }
 }
 
-// Interface for the complete search results
-// Contains separate arrays for issues, pull requests, and discussions
-// Includes a summary of the search results
+// Interface for search contributions result
+// Defines the structure of the result returned by the tool
 export interface SearchContributionsResult {
   issues: Array<{
     title: string
@@ -63,6 +59,8 @@ export const searchContributions = createTool({
   description: 'Search for GitHub issues, pull requests, and discussions created by a specific author within a date range',
   parameters: SearchContributionsSchema,
   handler: async ({ author, since, until, organization }, { step }) => {
+    logger.debug('\nSearch Contributions Tool - Starting with parameters:', { author, since, until, organization })
+
     // GraphQL query for searching issues and pull requests
     // Uses fragments to handle both types in a single query
     const issueQuery = `
@@ -104,7 +102,7 @@ export const searchContributions = createTool({
 
     // Construct the search query string
     const searchQuery = `org:${organization} author:${author} created:${since}..${until}`
-    console.log('\nSearch Query:', searchQuery)
+    logger.debug('\nSearch Query:', searchQuery)
 
     // Execute both queries in parallel for better performance
     const [issueResponse, discussionResponse] = await Promise.all([
@@ -112,43 +110,43 @@ export const searchContributions = createTool({
       graphqlWithAuth<GitHubSearchResponse>(discussionQuery, { searchQuery })
     ])
 
-    console.log('\nRaw GraphQL Responses:', JSON.stringify({
+    logger.debug('\nRaw GraphQL Responses:', JSON.stringify({
       issues: issueResponse,
       discussions: discussionResponse
     }, null, 2))
 
-    // Process and filter issues from the search results
+    // Process and format the results
     const issues = issueResponse.search.nodes
       .filter(node => node.__typename === 'Issue')
-      .map(issue => ({
-        title: issue.title,
-        url: issue.url,
-        created_at: issue.createdAt
+      .map(node => ({
+        title: node.title,
+        url: node.url,
+        created_at: node.createdAt
       }))
 
-    // Process and filter pull requests from the search results
-    const pullRequests = issueResponse.search.nodes
+    const pull_requests = issueResponse.search.nodes
       .filter(node => node.__typename === 'PullRequest')
-      .map(pr => ({
-        title: pr.title,
-        url: pr.url,
-        created_at: pr.createdAt
+      .map(node => ({
+        title: node.title,
+        url: node.url,
+        created_at: node.createdAt
       }))
 
-    // Process discussions from the search results
     const discussions = discussionResponse.search.nodes
-      .map(discussion => ({
-        title: discussion.title,
-        url: discussion.url,
-        created_at: discussion.createdAt
+      .map(node => ({
+        title: node.title,
+        url: node.url,
+        created_at: node.createdAt
       }))
 
-    // Return the processed results with a summary
-    return {
+    const result = {
       issues,
-      pull_requests: pullRequests,
+      pull_requests,
       discussions,
-      summary: `Found ${issues.length} issues, ${pullRequests.length} pull requests, and ${discussions.length} discussions created by ${author} between ${since} and ${until}.`
+      summary: `Found ${issues.length} issues, ${pull_requests.length} pull requests, and ${discussions.length} discussions created by ${author} between ${since} and ${until}.`
     }
+
+    logger.debug('\nSearch Contributions Tool - Final Result:', JSON.stringify(result, null, 2))
+    return result
   }
 })
