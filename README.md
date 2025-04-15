@@ -2,6 +2,13 @@
 
 This is an AI application for gathering contributions for an individual for a given time period and turning that data into feedback to help them level up. Use it for yourself. Use it for a teammate. **Level Up...**
 
+## How this tool works
+
+1. Searches GitHub for contributions made by an individual.
+2. Fetches all of the details for each contribution separately.
+3. Analyzes all of the details for each contribution based on the role of individual being reviewed (author, commentor, reviewer, etc) and generates a SWOT for that individual.
+4. Summarizes all of the SWOT into a single piece of feedback focusing on what is going well and where they could focus to have a larger impact.
+
 ## LLM Instructions
 
 Your coding assistant should fetch these urls to understand all of the available APIs:
