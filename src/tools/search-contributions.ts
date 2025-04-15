@@ -128,25 +128,57 @@ export const searchContributions = createTool({
     const limitValue = Number(limit?.value) || 100
     logger.debug('\nLimit value:', limitValue)
 
+    // Function to fetch all pages of results for a given query
+    async function fetchAllPages(query: string, type: 'ISSUE' | 'DISCUSSION') {
+      const allNodes = []
+      let hasNextPage = true
+      let endCursor = null
+      let pageCount = 0
+
+      while (hasNextPage) {
+        pageCount++
+        logger.debug(`\nFetching page ${pageCount} for ${type} query...`)
+        logger.debug(`Current cursor: ${endCursor || 'initial'}`)
+
+        const response: GitHubSearchResponse = await graphqlWithAuth<GitHubSearchResponse>(query, {
+          searchQuery,
+          first: limitValue,
+          after: endCursor
+        })
+
+        const nodesCount = response.search.nodes.length
+        allNodes.push(...response.search.nodes)
+        hasNextPage = response.search.pageInfo.hasNextPage
+        endCursor = response.search.pageInfo.endCursor
+
+        logger.debug(`Fetched ${nodesCount} nodes on page ${pageCount}`)
+        logger.debug(`Has next page: ${hasNextPage}`)
+        logger.debug(`Next cursor: ${endCursor || 'none'}`)
+
+        // If limit is set, break after first page
+        if (limit?.value) {
+          logger.debug('Limit set, stopping after first page')
+          break
+        }
+      }
+
+      logger.debug(`\nCompleted fetching ${type} with ${pageCount} pages and ${allNodes.length} total nodes`)
+      return allNodes
+    }
+
     // Execute both queries in parallel for better performance
-    const [issueResponse, discussionResponse] = await Promise.all([
-      graphqlWithAuth<GitHubSearchResponse>(issueQuery, {
-        searchQuery,
-        first: limitValue
-      }),
-      graphqlWithAuth<GitHubSearchResponse>(discussionQuery, {
-        searchQuery,
-        first: limitValue
-      })
+    const [issueNodes, discussionNodes] = await Promise.all([
+      fetchAllPages(issueQuery, 'ISSUE'),
+      fetchAllPages(discussionQuery, 'DISCUSSION')
     ])
 
     logger.debug('\nRaw GraphQL Responses:', JSON.stringify({
-      issues: issueResponse,
-      discussions: discussionResponse
+      issues: issueNodes,
+      discussions: discussionNodes
     }, null, 2))
 
     // Process and format the results
-    const issues = issueResponse.search.nodes
+    const issues = issueNodes
       .filter(node => node.__typename === 'Issue')
       .map(node => ({
         title: node.title,
@@ -154,7 +186,7 @@ export const searchContributions = createTool({
         created_at: node.createdAt
       }))
 
-    const pull_requests = issueResponse.search.nodes
+    const pull_requests = issueNodes
       .filter(node => node.__typename === 'PullRequest')
       .map(node => ({
         title: node.title,
@@ -162,7 +194,7 @@ export const searchContributions = createTool({
         created_at: node.createdAt
       }))
 
-    const discussions = discussionResponse.search.nodes
+    const discussions = discussionNodes
       .map(node => ({
         title: node.title,
         url: node.url,
