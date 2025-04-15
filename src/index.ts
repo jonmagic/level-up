@@ -12,6 +12,7 @@ async function main() {
   // Step 1: Search contributions
   logger.info('Searching Contributions...')
   const searchResult = await searchAgent.run(`Use the search_contributions tool with these parameters:
+- organization: open-truss
 - author: jonmagic
 - since: ${thirtyDaysAgo}
 - until: ${now}`)

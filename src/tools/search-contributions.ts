@@ -4,7 +4,8 @@ import { graphqlWithAuth } from '../services/github.js'
 const SearchContributionsSchema = z.object({
   author: z.string().describe('GitHub username of the author'),
   since: z.string().describe('ISO date string for start of search range'),
-  until: z.string().describe('ISO date string for end of search range')
+  until: z.string().describe('ISO date string for end of search range'),
+  organization: z.string().describe('GitHub organization to search within')
 })
 
 export type SearchContributionsInput = z.infer<typeof SearchContributionsSchema>
@@ -86,7 +87,7 @@ export const searchContributions = {
       }
     `
 
-    const searchQuery = `org:open-truss author:${author} created:${since}..${until}`
+    const searchQuery = `org:${params.organization} author:${author} created:${since}..${until}`
     console.log('\nSearch Query:', searchQuery)
 
     // Run both queries in parallel
