@@ -76,12 +76,15 @@ export const fetchDiscussion = createTool({
     const cache = ContributionCacheService.getInstance()
     const cached = await cache.get<DiscussionContribution>(owner, repo, 'discussion', number, updatedAt)
     if (cached) {
+      logger.debug('Cache hit for discussion:', { owner, repo, number, updatedAt })
       return cached.data
     }
+    logger.debug('Cache miss for discussion:', { owner, repo, number, updatedAt })
 
     // Clear analysis cache since we're fetching fresh data
     const analysisCache = AnalysisCacheService.getInstance()
     await analysisCache.clear(owner, repo, 'discussion')
+    logger.debug('Cleared analysis cache for discussion:', { owner, repo, number })
 
     const query = `
       query($owner: String!, $repo: String!, $number: Int!) {
@@ -200,6 +203,7 @@ export const fetchDiscussion = createTool({
 
     // Cache the result
     await cache.set(owner, repo, 'discussion', number, contribution)
+    logger.debug('Cached discussion data:', { owner, repo, number, updatedAt })
 
     return contribution
   }
