@@ -8,6 +8,7 @@ import { fetcherAgent } from './agents/fetcher.js'
 import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
 import { AnalysisCacheService } from './services/analysis-cache.js'
+import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
 
 // Helper function to extract repository and number from GitHub URL
 function extractRepoInfo(url: string): { owner: string; name: string; number: number } {
@@ -50,7 +51,7 @@ async function main() {
 - author: ${user}
 - since: ${startDate}
 - until: ${endDate}
-- limit: 3`)
+- limit: 10`)
   } catch (error) {
     logger.error('Failed to search for contributions:', error as Error)
     return
@@ -122,6 +123,8 @@ async function main() {
   logger.info('Starting individual contribution analysis...')
   logger.debug(`Processing ${contributions.length} contributions sequentially`)
 
+  const noteworthyAnalyses: string[] = []
+
   for (const [index, contribution] of contributions.entries()) {
     logger.info(`Analyzing contribution ${index + 1}/${contributions.length}:`)
     logger.info(`Title: ${contribution.title}`)
@@ -161,6 +164,7 @@ async function main() {
 
     // Check analysis cache first
     const analysisCache = AnalysisCacheService.getInstance()
+    let analysisText = ''
     const cachedAnalysis = await analysisCache.get(
       contribution.repository.owner,
       contribution.repository.name,
@@ -172,45 +176,76 @@ async function main() {
       logger.info('Using cached analysis:')
       logger.info('----------------')
       logger.info('\n' + cachedAnalysis)
-      continue
-    }
+      analysisText = cachedAnalysis
+    } else {
+      // Format contribution data for analysis
+      const contributionData = JSON.stringify(detailedContribution, null, 2)
 
-    // Format contribution data for analysis
-    const contributionData = JSON.stringify(detailedContribution, null, 2)
-
-    let analysis
-    try {
-      // Analyze the contribution using our detailed analyzer
-      analysis = await contributionAnalyzerAgent.run(contributionData)
-    } catch (error) {
-      logger.error(`Failed to analyze contribution "${contribution.title}":`, error as Error)
-      continue
-    }
-
-    logger.info('Analysis Results:')
-    logger.info('----------------')
-    const lastMessage = analysis?.output?.[analysis.output.length - 1]
-    if (lastMessage?.type === 'text' && lastMessage?.content) {
-      let analysisText: string
-      if (typeof lastMessage.content === 'string') {
-        analysisText = lastMessage.content
-      } else if (Array.isArray(lastMessage.content)) {
-        analysisText = lastMessage.content.map(c => c.text).join('\n')
-      } else {
-        throw new Error('Unexpected content type from agent')
+      let analysis
+      try {
+        // Analyze the contribution using our detailed analyzer
+        analysis = await contributionAnalyzerAgent.run(contributionData)
+      } catch (error) {
+        logger.error(`Failed to analyze contribution "${contribution.title}":`, error as Error)
+        continue
       }
 
-      logger.info('\n' + analysisText)
+      logger.info('Analysis Results:')
+      logger.info('----------------')
+      const lastMessage = analysis?.output?.[analysis.output.length - 1]
+      if (lastMessage?.type === 'text' && lastMessage?.content) {
+        if (typeof lastMessage.content === 'string') {
+          analysisText = lastMessage.content
+        } else if (Array.isArray(lastMessage.content)) {
+          analysisText = lastMessage.content.map(c => c.text).join('\n')
+        } else {
+          throw new Error('Unexpected content type from agent')
+        }
 
-      // Cache the analysis
-      await analysisCache.set(
-        contribution.repository.owner,
-        contribution.repository.name,
-        contribution.type,
-        contribution.number,
-        analysisText
-      )
+        logger.info('\n' + analysisText)
+
+        // Cache the analysis
+        await analysisCache.set(
+          contribution.repository.owner,
+          contribution.repository.name,
+          contribution.type,
+          contribution.number,
+          analysisText
+        )
+      }
     }
+
+    // Check if this is a noteworthy contribution
+    if (analysisText.includes('Noteworthy: true')) {
+      noteworthyAnalyses.push(analysisText)
+    }
+  }
+
+  // Step 3: Generate summary feedback from noteworthy analyses
+  if (noteworthyAnalyses.length > 0) {
+    logger.info(`\nGenerating summary feedback from ${noteworthyAnalyses.length} noteworthy contributions...`)
+    try {
+      const prompt = `Please analyze these contribution analyses and provide personalized feedback:
+
+${noteworthyAnalyses.join('\n\n')}
+
+Focus on identifying patterns of excellence and high-impact growth opportunities. Provide specific examples to support your observations.`
+
+      const result = await summaryAnalyzerAgent.run(prompt)
+      const lastMessage = result.output[result.output.length - 1]
+      if (lastMessage && typeof lastMessage === 'object' && 'content' in lastMessage) {
+        const summary = lastMessage.content as string
+        logger.info('\nSummary Feedback:')
+        logger.info('----------------')
+        logger.info('\n' + summary)
+      } else {
+        throw new Error('Unexpected message type from agent')
+      }
+    } catch (error) {
+      logger.error('Failed to generate summary feedback:', error as Error)
+    }
+  } else {
+    logger.info('No noteworthy contributions found to summarize.')
   }
 
   logger.info('Contribution analysis complete!')
