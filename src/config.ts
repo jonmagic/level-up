@@ -14,7 +14,7 @@ export const env = {
     // API key for OpenAI services
     apiKey: process.env.OPENAI_API_KEY!,
     // Model to use for AI operations. Do not go lower than o3-mini for accurate tool calls.
-    model: 'o3-mini'
+    model: 'gpt-4.1'
   },
   // GitHub API configuration
   github: {
