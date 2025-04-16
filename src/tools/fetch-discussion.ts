@@ -7,6 +7,7 @@ import { executeQuery, GitHubResponse } from '../services/github.js'
 import { DiscussionContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
 import { ContributionCacheService } from '../services/contribution-cache.js'
+import { AnalysisCacheService } from '../services/analysis-cache.js'
 
 // Schema for validating fetch discussion parameters
 const FetchDiscussionSchema = z.object({
@@ -77,6 +78,10 @@ export const fetchDiscussion = createTool({
     if (cached) {
       return cached.data
     }
+
+    // Clear analysis cache since we're fetching fresh data
+    const analysisCache = AnalysisCacheService.getInstance()
+    await analysisCache.clear(owner, repo, 'discussion')
 
     const query = `
       query($owner: String!, $repo: String!, $number: Int!) {

@@ -7,6 +7,7 @@ import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
 import { fetcherAgent } from './agents/fetcher.js'
 import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
+import { AnalysisCacheService } from './services/analysis-cache.js'
 
 // Helper function to extract repository and number from GitHub URL
 function extractRepoInfo(url: string): { owner: string; name: string; number: number } {
@@ -158,6 +159,22 @@ async function main() {
       continue
     }
 
+    // Check analysis cache first
+    const analysisCache = AnalysisCacheService.getInstance()
+    const cachedAnalysis = await analysisCache.get(
+      contribution.repository.owner,
+      contribution.repository.name,
+      contribution.type,
+      contribution.number
+    )
+
+    if (cachedAnalysis) {
+      logger.info('Using cached analysis:')
+      logger.info('----------------')
+      logger.info('\n' + cachedAnalysis)
+      continue
+    }
+
     // Format contribution data for analysis
     const contributionData = JSON.stringify(detailedContribution, null, 2)
 
@@ -174,7 +191,25 @@ async function main() {
     logger.info('----------------')
     const lastMessage = analysis?.output?.[analysis.output.length - 1]
     if (lastMessage?.type === 'text' && lastMessage?.content) {
-      logger.info('\n' +lastMessage.content)
+      let analysisText: string
+      if (typeof lastMessage.content === 'string') {
+        analysisText = lastMessage.content
+      } else if (Array.isArray(lastMessage.content)) {
+        analysisText = lastMessage.content.map(c => c.text).join('\n')
+      } else {
+        throw new Error('Unexpected content type from agent')
+      }
+
+      logger.info('\n' + analysisText)
+
+      // Cache the analysis
+      await analysisCache.set(
+        contribution.repository.owner,
+        contribution.repository.name,
+        contribution.type,
+        contribution.number,
+        analysisText
+      )
     }
   }
 

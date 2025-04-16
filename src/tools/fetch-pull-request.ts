@@ -7,6 +7,7 @@ import { executeQuery, GitHubResponse } from '../services/github.js'
 import { PullRequestContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
 import { ContributionCacheService } from '../services/contribution-cache.js'
+import { AnalysisCacheService } from '../services/analysis-cache.js'
 
 // Schema for validating fetch pull request parameters
 const FetchPullRequestSchema = z.object({
@@ -67,6 +68,10 @@ export const fetchPullRequest = createTool({
     if (cached) {
       return cached.data
     }
+
+    // Clear analysis cache since we're fetching fresh data
+    const analysisCache = AnalysisCacheService.getInstance()
+    await analysisCache.clear(owner, repo, 'pull')
 
     const query = `
       query($owner: String!, $repo: String!, $number: Int!) {
