@@ -43,15 +43,17 @@ async function main() {
   logger.debug(`Searching contributions between ${startDate} and ${endDate}`)
 
   // Step 1: Search contributions using the search agent
-  logger.info(`Searching for recent contributions by ${user}...`)
+  logger.debug(`Searching for recent contributions by ${user}...`)
   let searchResult
   try {
-    searchResult = await searchAgent.run(`Use the search_contributions tool with these parameters:
+    const searchPrompt = `Use the search_contributions tool with these parameters:
 - organization: ${organization}
 - author: ${user}
 - since: ${startDate}
 - until: ${endDate}
-- limit: 10`)
+- limit: 10`
+    logger.info(searchPrompt)
+    searchResult = await searchAgent.run(searchPrompt)
   } catch (error) {
     logger.error('Failed to search for contributions:', error as Error)
     return
@@ -102,9 +104,9 @@ async function main() {
         ]
 
         if (contributions.length > 0) {
-          logger.info(`Found ${contributions.length} contributions to analyze:`)
+          logger.debug(`Found ${contributions.length} contributions to analyze:`)
           for (const contribution of contributions) {
-            logger.info(`- ${contribution.title} (${contribution.url})`)
+            logger.debug(`- ${contribution.title} (${contribution.url})`)
           }
         }
       } catch (error) {
@@ -120,15 +122,15 @@ async function main() {
   }
 
   // Step 2: Analyze each contribution individually
-  logger.info('Starting individual contribution analysis...')
+  logger.debug('Starting individual contribution analysis...')
   logger.debug(`Processing ${contributions.length} contributions sequentially`)
 
   const noteworthyAnalyses: string[] = []
 
   for (const [index, contribution] of contributions.entries()) {
-    logger.info(`Analyzing contribution ${index + 1}/${contributions.length}:`)
-    logger.info(`Title: ${contribution.title}`)
-    logger.info(`URL: ${contribution.url}`)
+    logger.debug(`Analyzing contribution ${index + 1}/${contributions.length}:`)
+    logger.debug(`Title: ${contribution.title}`)
+    logger.debug(`URL: ${contribution.url}`)
     logger.debug(`Type: ${contribution.type}`)
     logger.debug(`Repository: ${contribution.repository.owner}/${contribution.repository.name}`)
     logger.debug(`Number: ${contribution.number}`)
@@ -137,7 +139,7 @@ async function main() {
     try {
       // Use the fetcher agent to get detailed contribution data
       const fetchPrompt = `Fetch the contribution at ${contribution.url} with updatedAt ${contribution.updatedAt}`
-      logger.debug('\nFetch Prompt:', fetchPrompt)
+      logger.info(fetchPrompt)
       fetcherResult = await fetcherAgent.run(fetchPrompt)
     } catch (error) {
       logger.error(`Failed to fetch contribution "${contribution.title}":`, error as Error)
@@ -173,9 +175,9 @@ async function main() {
     )
 
     if (cachedAnalysis) {
-      logger.info('Using cached analysis:')
-      logger.info('----------------')
-      logger.info('\n' + cachedAnalysis)
+      logger.debug('Using cached analysis:')
+      logger.debug('----------------')
+      logger.debug('\n' + cachedAnalysis)
       analysisText = cachedAnalysis
     } else {
       // Format contribution data for analysis
@@ -190,8 +192,8 @@ async function main() {
         continue
       }
 
-      logger.info('Analysis Results:')
-      logger.info('----------------')
+      logger.debug('Analysis Results:')
+      logger.debug('----------------')
       const lastMessage = analysis?.output?.[analysis.output.length - 1]
       if (lastMessage?.type === 'text' && lastMessage?.content) {
         if (typeof lastMessage.content === 'string') {
@@ -202,7 +204,7 @@ async function main() {
           throw new Error('Unexpected content type from agent')
         }
 
-        logger.info('\n' + analysisText)
+        logger.debug('\n' + analysisText)
 
         // Cache the analysis
         await analysisCache.set(
@@ -223,7 +225,7 @@ async function main() {
 
   // Step 3: Generate summary feedback from noteworthy analyses
   if (noteworthyAnalyses.length > 0) {
-    logger.info(`\nGenerating summary feedback from ${noteworthyAnalyses.length} noteworthy contributions...`)
+    logger.info(`Generating summary feedback from ${noteworthyAnalyses.length} noteworthy contributions...`)
     try {
       const prompt = `Please analyze these contribution analyses and provide personalized feedback:
 
@@ -235,8 +237,8 @@ Focus on identifying patterns of excellence and high-impact growth opportunities
       const lastMessage = result.output[result.output.length - 1]
       if (lastMessage && typeof lastMessage === 'object' && 'content' in lastMessage) {
         const summary = lastMessage.content as string
-        logger.info('\nSummary Feedback:')
-        logger.info('----------------')
+        logger.debug('\nSummary Feedback:')
+        logger.debug('----------------')
         logger.info('\n' + summary)
       } else {
         throw new Error('Unexpected message type from agent')
@@ -248,7 +250,7 @@ Focus on identifying patterns of excellence and high-impact growth opportunities
     logger.info('No noteworthy contributions found to summarize.')
   }
 
-  logger.info('Contribution analysis complete!')
+  logger.debug('Contribution analysis complete!')
 }
 
 // Execute main function and handle any uncaught errors
