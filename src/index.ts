@@ -56,7 +56,7 @@ async function main() {
   }
 
   // Extract contributions from search result
-  let contributions: Array<{ title: string; url: string; type: 'issue' | 'pull' | 'discussion'; number: number; repository: { owner: string; name: string } }> = []
+  let contributions: Array<{ title: string; url: string; type: 'issue' | 'pull' | 'discussion'; number: number; repository: { owner: string; name: string }; updatedAt: string }> = []
   for (const toolCall of searchResult.toolCalls) {
     if (toolCall.role === 'tool_result' && toolCall.content) {
       try {
@@ -71,7 +71,8 @@ async function main() {
               url: issue.url,
               type: 'issue' as const,
               number,
-              repository: { owner, name }
+              repository: { owner, name },
+              updatedAt: issue.updated_at
             }
           }),
           ...data.pull_requests.map(pr => {
@@ -81,7 +82,8 @@ async function main() {
               url: pr.url,
               type: 'pull' as const,
               number,
-              repository: { owner, name }
+              repository: { owner, name },
+              updatedAt: pr.updated_at
             }
           }),
           ...data.discussions.map(discussion => {
@@ -91,7 +93,8 @@ async function main() {
               url: discussion.url,
               type: 'discussion' as const,
               number,
-              repository: { owner, name }
+              repository: { owner, name },
+              updatedAt: discussion.updated_at
             }
           })
         ]
@@ -129,7 +132,7 @@ async function main() {
     let fetcherResult
     try {
       // Use the fetcher agent to get detailed contribution data
-      const fetchPrompt = `Fetch the contribution at ${contribution.url} with updatedAt ${new Date().toISOString()}`
+      const fetchPrompt = `Fetch the contribution at ${contribution.url} with updatedAt ${contribution.updatedAt}`
       logger.debug('\nFetch Prompt:', fetchPrompt)
       fetcherResult = await fetcherAgent.run(fetchPrompt)
     } catch (error) {

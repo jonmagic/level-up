@@ -6,12 +6,14 @@ import { z } from 'zod'
 import { executeQuery, GitHubResponse } from '../services/github.js'
 import { IssueContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
+import { ContributionCacheService } from '../services/contribution-cache.js'
 
 // Schema for validating fetch issue parameters
 const FetchIssueSchema = z.object({
   owner: z.string().describe('Owner of the repository'),
   repo: z.string().describe('Name of the repository'),
-  number: z.number().describe('Issue number')
+  number: z.number().describe('Issue number'),
+  updatedAt: z.string().describe('Last updated timestamp from search results')
 })
 
 export type FetchIssueInput = z.infer<typeof FetchIssueSchema>
@@ -47,7 +49,14 @@ export const fetchIssue = createTool({
   description: 'Fetch detailed information about a GitHub Issue',
   parameters: FetchIssueSchema,
   handler: async (params: FetchIssueInput): Promise<IssueContribution> => {
-    const { owner, repo, number } = params
+    const { owner, repo, number, updatedAt } = params
+
+    // Check cache first
+    const cache = ContributionCacheService.getInstance()
+    const cached = await cache.get<IssueContribution>(owner, repo, 'issue', number, updatedAt)
+    if (cached) {
+      return cached.data
+    }
 
     const query = `
       query($owner: String!, $repo: String!, $number: Int!) {
@@ -119,6 +128,9 @@ export const fetchIssue = createTool({
       },
       number
     }
+
+    // Cache the result
+    await cache.set(owner, repo, 'issue', number, contribution)
 
     return contribution
   }

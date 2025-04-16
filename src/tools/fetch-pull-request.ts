@@ -6,12 +6,14 @@ import { z } from 'zod'
 import { executeQuery, GitHubResponse } from '../services/github.js'
 import { PullRequestContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
+import { ContributionCacheService } from '../services/contribution-cache.js'
 
 // Schema for validating fetch pull request parameters
 const FetchPullRequestSchema = z.object({
   owner: z.string().describe('Owner of the repository'),
   repo: z.string().describe('Name of the repository'),
-  number: z.number().describe('Pull request number')
+  number: z.number().describe('Pull request number'),
+  updatedAt: z.string().describe('Last updated timestamp from search results')
 })
 
 export type FetchPullRequestInput = z.infer<typeof FetchPullRequestSchema>
@@ -57,7 +59,14 @@ export const fetchPullRequest = createTool({
   description: 'Fetch detailed information about a GitHub Pull Request',
   parameters: FetchPullRequestSchema,
   handler: async (params: FetchPullRequestInput): Promise<PullRequestContribution> => {
-    const { owner, repo, number } = params
+    const { owner, repo, number, updatedAt } = params
+
+    // Check cache first
+    const cache = ContributionCacheService.getInstance()
+    const cached = await cache.get<PullRequestContribution>(owner, repo, 'pull', number, updatedAt)
+    if (cached) {
+      return cached.data
+    }
 
     const query = `
       query($owner: String!, $repo: String!, $number: Int!) {
@@ -150,6 +159,9 @@ export const fetchPullRequest = createTool({
       },
       number
     }
+
+    // Cache the result
+    await cache.set(owner, repo, 'pull', number, contribution)
 
     return contribution
   }

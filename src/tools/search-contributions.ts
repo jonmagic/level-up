@@ -27,6 +27,7 @@ interface GitHubSearchResponse extends GitHubResponse {
       title: string
       url: string
       createdAt: string
+      updatedAt: string
       __typename: string
     }>
     pageInfo: {
@@ -43,16 +44,19 @@ export interface SearchContributionsResult {
     title: string
     url: string
     created_at: string
+    updated_at: string
   }>
   pull_requests: Array<{
     title: string
     url: string
     created_at: string
+    updated_at: string
   }>
   discussions: Array<{
     title: string
     url: string
     created_at: string
+    updated_at: string
   }>
   summary: string
 }
@@ -74,12 +78,14 @@ export const searchContributions = createTool({
               title
               url
               createdAt
+              updatedAt
               __typename
             }
             ... on PullRequest {
               title
               url
               createdAt
+              updatedAt
               __typename
             }
           }
@@ -100,6 +106,7 @@ export const searchContributions = createTool({
               title
               url
               createdAt
+              updatedAt
               __typename
             }
           }
@@ -173,7 +180,8 @@ export const searchContributions = createTool({
       .map(node => ({
         title: node.title,
         url: node.url,
-        created_at: node.createdAt
+        created_at: node.createdAt,
+        updated_at: node.updatedAt
       }))
 
     const pull_requests = issueNodes
@@ -181,14 +189,16 @@ export const searchContributions = createTool({
       .map(node => ({
         title: node.title,
         url: node.url,
-        created_at: node.createdAt
+        created_at: node.createdAt,
+        updated_at: node.updatedAt
       }))
 
     const discussions = discussionNodes
       .map(node => ({
         title: node.title,
         url: node.url,
-        created_at: node.createdAt
+        created_at: node.createdAt,
+        updated_at: node.updatedAt
       }))
 
     const result = {

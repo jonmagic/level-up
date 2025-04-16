@@ -6,12 +6,14 @@ import { z } from 'zod'
 import { executeQuery, GitHubResponse } from '../services/github.js'
 import { DiscussionContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
+import { ContributionCacheService } from '../services/contribution-cache.js'
 
 // Schema for validating fetch discussion parameters
 const FetchDiscussionSchema = z.object({
   owner: z.string().describe('Owner of the repository'),
   repo: z.string().describe('Name of the repository'),
-  number: z.number().describe('Discussion number')
+  number: z.number().describe('Discussion number'),
+  updatedAt: z.string().describe('Last updated timestamp from search results')
 })
 
 export type FetchDiscussionInput = z.infer<typeof FetchDiscussionSchema>
@@ -67,7 +69,14 @@ export const fetchDiscussion = createTool({
   description: 'Fetch detailed information about a GitHub Discussion',
   parameters: FetchDiscussionSchema,
   handler: async (params: FetchDiscussionInput): Promise<DiscussionContribution> => {
-    const { owner, repo, number } = params
+    const { owner, repo, number, updatedAt } = params
+
+    // Check cache first
+    const cache = ContributionCacheService.getInstance()
+    const cached = await cache.get<DiscussionContribution>(owner, repo, 'discussion', number, updatedAt)
+    if (cached) {
+      return cached.data
+    }
 
     const query = `
       query($owner: String!, $repo: String!, $number: Int!) {
@@ -183,6 +192,9 @@ export const fetchDiscussion = createTool({
       },
       number
     }
+
+    // Cache the result
+    await cache.set(owner, repo, 'discussion', number, contribution)
 
     return contribution
   }

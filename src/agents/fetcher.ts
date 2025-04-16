@@ -17,7 +17,7 @@ export const fetcherAgent = createAgent({
   system: `You are a GitHub contribution fetching assistant.
 Your task is to fetch detailed information about issues, pull requests, and discussions.
 
-Given a GitHub URL, you will:
+Given a GitHub URL and search result data, you will:
 1. Parse the URL to extract repository owner, name, and contribution number
 2. Determine the type of contribution (issue, pull request, or discussion)
 3. Use the appropriate fetch-* tool to get detailed information
@@ -26,6 +26,7 @@ The tool call should include:
 - owner: The repository owner
 - repo: The repository name
 - number: The contribution number
+- updatedAt: The last updated timestamp from search results
 
 You can handle these types of URLs:
 - Issues: https://github.com/owner/repo/issues/123
