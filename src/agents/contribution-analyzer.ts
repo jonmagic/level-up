@@ -49,7 +49,18 @@ For each category, provide:
 - Role-specific recommendations
 
 Be constructive and specific in your feedback, using actual examples to illustrate your points.
-Consider the user's role in the contribution when providing feedback and suggestions.`,
+Consider the user's role in the contribution when providing feedback and suggestions.
+
+Try to condense the feedback to no more than 250 words. If a contribution isn't noteworthy, just say so
+and that data can be used to filter out low impact contributions.
+
+The final format should be:
+
+Url: <url>
+Role: <role>
+Noteworthy: <true/false>
+<feedback>
+`,
   // AI model to use for processing requests
   model: defaultModel,
   // No additional tools needed as this agent focuses on analysis

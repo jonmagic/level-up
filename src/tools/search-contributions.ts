@@ -3,7 +3,7 @@
 
 import { createTool } from '@inngest/agent-kit'
 import { z } from 'zod'
-import { graphqlWithAuth } from '../services/github.js'
+import { executeQuery, GitHubResponse } from '../services/github.js'
 import { logger } from '../services/logger.js'
 
 // Schema for validating search contribution parameters
@@ -13,16 +13,7 @@ const SearchContributionsSchema = z.object({
   since: z.string().describe('ISO date string for start of search range'),
   until: z.string().describe('ISO date string for end of search range'),
   organization: z.string().describe('GitHub organization to search within'),
-  limit: z.object({
-    type: z.literal('number'),
-    description: z.literal('Maximum number of results to return'),
-    nullable: z.literal(true),
-    value: z.object({
-      type: z.literal('number'),
-      description: z.literal('The actual limit value'),
-      nullable: z.literal(true)
-    }).nullable()
-  }).nullable()
+  limit: z.number().describe('Maximum number of results to return')
 })
 
 // Type definition for search contribution input parameters
@@ -30,7 +21,7 @@ export type SearchContributionsInput = z.infer<typeof SearchContributionsSchema>
 
 // Interface for GitHub search response
 // Defines the structure of the response from GitHub's GraphQL API
-interface GitHubSearchResponse {
+interface GitHubSearchResponse extends GitHubResponse {
   search: {
     nodes: Array<{
       title: string
@@ -40,7 +31,7 @@ interface GitHubSearchResponse {
     }>
     pageInfo: {
       hasNextPage: boolean
-      endCursor: string
+      endCursor: string | null
     }
   }
 }
@@ -124,10 +115,6 @@ export const searchContributions = createTool({
     const searchQuery = `org:${organization} author:${author} created:${since}..${until}`
     logger.debug('\nSearch Query:', searchQuery)
 
-    // Extract the limit value from the object structure
-    const limitValue = Number(limit?.value) || 100
-    logger.debug('\nLimit value:', limitValue)
-
     // Function to fetch all pages of results for a given query
     async function fetchAllPages(query: string, type: 'ISSUE' | 'DISCUSSION') {
       const allNodes = []
@@ -140,11 +127,14 @@ export const searchContributions = createTool({
         logger.debug(`\nFetching page ${pageCount} for ${type} query...`)
         logger.debug(`Current cursor: ${endCursor || 'initial'}`)
 
-        const response: GitHubSearchResponse = await graphqlWithAuth<GitHubSearchResponse>(query, {
+        const response: GitHubSearchResponse = await executeQuery<GitHubSearchResponse>(query, {
           searchQuery,
-          first: limitValue,
+          first: limit,
           after: endCursor
         })
+
+        logger.debug('\nGitHub API Response:', JSON.stringify(response, null, 2))
+        logger.debug('\nSearch Response:', JSON.stringify(response.search, null, 2))
 
         const nodesCount = response.search.nodes.length
         allNodes.push(...response.search.nodes)
@@ -156,7 +146,7 @@ export const searchContributions = createTool({
         logger.debug(`Next cursor: ${endCursor || 'none'}`)
 
         // If limit is set, break after first page
-        if (limit?.value) {
+        if (limit) {
           logger.debug('Limit set, stopping after first page')
           break
         }

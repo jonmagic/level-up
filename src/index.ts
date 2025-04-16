@@ -4,8 +4,22 @@
 
 import { searchAgent } from './agents/search.js'
 import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
+import { fetcherAgent } from './agents/fetcher.js'
 import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
+
+// Helper function to extract repository and number from GitHub URL
+function extractRepoInfo(url: string): { owner: string; name: string; number: number } {
+  const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)\/(issues|pull|discussions)\/(\d+)/)
+  if (!match) {
+    throw new Error(`Invalid GitHub URL: ${url}`)
+  }
+  return {
+    owner: match[1],
+    name: match[2],
+    number: parseInt(match[4], 10)
+  }
+}
 
 // Main application function that orchestrates the contribution analysis process
 // 1. Searches for recent GitHub contributions
@@ -28,26 +42,58 @@ async function main() {
 
   // Step 1: Search contributions using the search agent
   logger.info(`Searching for recent contributions by ${user}...`)
-  const searchResult = await searchAgent.run(`Use the search_contributions tool with these parameters:
+  let searchResult
+  try {
+    searchResult = await searchAgent.run(`Use the search_contributions tool with these parameters:
 - organization: ${organization}
 - author: ${user}
 - since: ${startDate}
 - until: ${endDate}
 - limit: 3`)
+  } catch (error) {
+    logger.error('Failed to search for contributions:', error as Error)
+    return
+  }
 
   // Extract contributions from search result
-  let contributions: Array<{ title: string; url: string }> = []
+  let contributions: Array<{ title: string; url: string; type: 'issue' | 'pull' | 'discussion'; number: number; repository: { owner: string; name: string } }> = []
   for (const toolCall of searchResult.toolCalls) {
     if (toolCall.role === 'tool_result' && toolCall.content) {
       try {
         const { data } = toolCall.content as { data: SearchContributionsResult }
-        logger.info(data.summary)
 
-        // Combine all contribution types into a single array
+        // Combine all contribution types into a single array with type information
         contributions = [
-          ...data.issues.map(issue => ({ title: issue.title, url: issue.url })),
-          ...data.pull_requests.map(pr => ({ title: pr.title, url: pr.url })),
-          ...data.discussions.map(discussion => ({ title: discussion.title, url: discussion.url }))
+          ...data.issues.map(issue => {
+            const { owner, name, number } = extractRepoInfo(issue.url)
+            return {
+              title: issue.title,
+              url: issue.url,
+              type: 'issue' as const,
+              number,
+              repository: { owner, name }
+            }
+          }),
+          ...data.pull_requests.map(pr => {
+            const { owner, name, number } = extractRepoInfo(pr.url)
+            return {
+              title: pr.title,
+              url: pr.url,
+              type: 'pull' as const,
+              number,
+              repository: { owner, name }
+            }
+          }),
+          ...data.discussions.map(discussion => {
+            const { owner, name, number } = extractRepoInfo(discussion.url)
+            return {
+              title: discussion.title,
+              url: discussion.url,
+              type: 'discussion' as const,
+              number,
+              repository: { owner, name }
+            }
+          })
         ]
 
         if (contributions.length > 0) {
@@ -73,45 +119,63 @@ async function main() {
   logger.debug(`Processing ${contributions.length} contributions sequentially`)
 
   for (const [index, contribution] of contributions.entries()) {
-    logger.info(`\nAnalyzing contribution ${index + 1}/${contributions.length}:`)
+    logger.info(`Analyzing contribution ${index + 1}/${contributions.length}:`)
     logger.info(`Title: ${contribution.title}`)
     logger.info(`URL: ${contribution.url}`)
+    logger.debug(`Type: ${contribution.type}`)
+    logger.debug(`Repository: ${contribution.repository.owner}/${contribution.repository.name}`)
+    logger.debug(`Number: ${contribution.number}`)
 
+    let fetcherResult
     try {
-      const analysisResult = await contributionAnalyzerAgent.run(`Please analyze this GitHub contribution:
-
-Title: ${contribution.title}
-URL: ${contribution.url}
-User: ${user}
-Organization: ${organization}
-
-Provide detailed feedback on the user's role and impact in this contribution. Consider:
-- Their specific role in this contribution (author, reviewer, commenter, etc.)
-- The quality and effectiveness of their contribution
-- How their work aligns with project goals
-- Areas for improvement and growth
-
-Focus on providing role-specific feedback and actionable suggestions.`)
-
-      logger.info('\nAnalysis Results:')
-      logger.info('----------------')
-
-      // Print analysis results
-      for (const message of analysisResult.output) {
-        if (message.role === 'assistant' && 'content' in message && message.content) {
-          const content = typeof message.content === 'string'
-            ? message.content
-            : message.content.map(c => c.text).join('')
-          logger.info(content)
-        }
-      }
+      // Use the fetcher agent to get detailed contribution data
+      const fetchPrompt = `Fetch the contribution at ${contribution.url} with updatedAt ${new Date().toISOString()}`
+      logger.debug('\nFetch Prompt:', fetchPrompt)
+      fetcherResult = await fetcherAgent.run(fetchPrompt)
     } catch (error) {
-      logger.error(`Error analyzing contribution "${contribution.title}":`, error as Error)
-      logger.debug('Contribution details:', contribution)
+      logger.error(`Failed to fetch contribution "${contribution.title}":`, error as Error)
+      logger.error('Error details:', JSON.stringify(error, null, 2))
+      continue
+    }
+
+    // Extract the contribution data from the tool result
+    let detailedContribution
+    for (const toolCall of fetcherResult.toolCalls) {
+      logger.debug('Tool call:', JSON.stringify(toolCall, null, 2))
+      if (toolCall.role === 'tool_result' && toolCall.content) {
+        detailedContribution = toolCall.content
+        logger.debug('Found detailed contribution:', JSON.stringify(detailedContribution, null, 2))
+        break
+      }
+    }
+
+    if (!detailedContribution) {
+      logger.error(`Failed to extract details for ${contribution.type} ${contribution.number}`)
+      logger.error('Tool calls:', JSON.stringify(fetcherResult.toolCalls, null, 2))
+      continue
+    }
+
+    // Format contribution data for analysis
+    const contributionData = JSON.stringify(detailedContribution, null, 2)
+
+    let analysis
+    try {
+      // Analyze the contribution using our detailed analyzer
+      analysis = await contributionAnalyzerAgent.run(contributionData)
+    } catch (error) {
+      logger.error(`Failed to analyze contribution "${contribution.title}":`, error as Error)
+      continue
+    }
+
+    logger.info('Analysis Results:')
+    logger.info('----------------')
+    const lastMessage = analysis?.output?.[analysis.output.length - 1]
+    if (lastMessage?.type === 'text' && lastMessage?.content) {
+      logger.info('\n' +lastMessage.content)
     }
   }
 
-  logger.info('\nContribution analysis complete!')
+  logger.info('Contribution analysis complete!')
 }
 
 // Execute main function and handle any uncaught errors
