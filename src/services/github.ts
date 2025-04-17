@@ -94,10 +94,17 @@ export async function executeQuery<T extends GitHubResponse>(query: string, vari
     }
     lastRequestTime = Date.now()
 
-    logger.debug('\nGitHub API Response:', JSON.stringify(result, null, 2))
+    // logger.debug('\nGitHub API Response:', JSON.stringify(result, null, 2))
     return result
   } catch (error) {
     logger.error('GitHub API request failed:', error)
+    if (error instanceof Error) {
+      logger.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+    }
     throw error
   }
 }

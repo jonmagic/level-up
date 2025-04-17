@@ -2,6 +2,7 @@ import { createAgent } from '@inngest/agent-kit'
 import { defaultModel } from '../services/models.js'
 import { logger } from '../services/logger.js'
 
+// Creates a helpful agent that can analyze multiple GitHub contributions
 export const summaryAnalyzerAgent = createAgent({
   name: 'summary-analyzer',
   system: `You are an expert at analyzing multiple GitHub contributions and providing personalized, constructive feedback.
@@ -49,7 +50,6 @@ Remember to:
 - Use a supportive, encouraging tone
 - Keep the feedback concise and focused`,
   model: defaultModel,
-  tools: [],
   lifecycle: {
     onStart: ({ prompt, history = [] }) => {
       logger.debug('\nSummary Analyzer Agent - Starting with prompt:', prompt)
@@ -59,8 +59,19 @@ Remember to:
       logger.debug('\nSummary Analyzer Agent - Model Response:', JSON.stringify(result, null, 2))
       return result
     },
-    onFinish: ({ result }) => {
+    onFinish: ({ result, network }) => {
       logger.debug('\nSummary Analyzer Agent - Final Result:', JSON.stringify(result, null, 2))
+
+      // Get the last message from the output
+      const lastMessage = result.output[result.output.length - 1]
+      const content = lastMessage?.type === 'text' ? lastMessage.content as string : ''
+
+      // Update network state with summary
+      if (network?.state) {
+        network.state.data.summary = content
+        logger.debug('Updated network state with summary:', content)
+      }
+
       return result
     }
   }

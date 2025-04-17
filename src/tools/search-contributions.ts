@@ -16,6 +16,11 @@ const SearchContributionsSchema = z.object({
   limit: z.number().describe('Maximum number of results to return')
 })
 
+// Helper function to convert ISO8601 timestamp to YYYY-MM-DD format
+function formatDateForSearch(isoDate: string): string {
+  return isoDate.split('T')[0]
+}
+
 // Type definition for search contribution input parameters
 export type SearchContributionsInput = z.infer<typeof SearchContributionsSchema>
 
@@ -119,7 +124,7 @@ export const searchContributions = createTool({
     `
 
     // Construct the search query string
-    const searchQuery = `org:${organization} author:${author} created:${since}..${until}`
+    const searchQuery = `org:${organization} author:${author} created:${formatDateForSearch(since)}..${formatDateForSearch(until)}`
     logger.debug('\nSearch Query:', searchQuery)
 
     // Function to fetch all pages of results for a given query
@@ -139,9 +144,6 @@ export const searchContributions = createTool({
           first: limit,
           after: endCursor
         })
-
-        logger.debug('\nGitHub API Response:', JSON.stringify(response, null, 2))
-        logger.debug('\nSearch Response:', JSON.stringify(response.search, null, 2))
 
         const nodesCount = response.search.nodes.length
         allNodes.push(...response.search.nodes)
@@ -169,10 +171,10 @@ export const searchContributions = createTool({
       fetchAllPages(discussionQuery, 'DISCUSSION')
     ])
 
-    logger.debug('\nRaw GraphQL Responses:', JSON.stringify({
-      issues: issueNodes,
-      discussions: discussionNodes
-    }, null, 2))
+    // logger.debug('\nRaw GraphQL Responses:', JSON.stringify({
+    //   issues: issueNodes,
+    //   discussions: discussionNodes
+    // }, null, 2))
 
     // Process and format the results
     const issues = issueNodes
@@ -208,7 +210,7 @@ export const searchContributions = createTool({
       summary: `Found ${issues.length} issues, ${pull_requests.length} pull requests, and ${discussions.length} discussions created by ${author} between ${since} and ${until}.`
     }
 
-    logger.debug('\nSearch Contributions Tool - Final Result:', JSON.stringify(result, null, 2))
+    // logger.debug('\nSearch Contributions Tool - Final Result:', JSON.stringify(result, null, 2))
     return result
   }
 })

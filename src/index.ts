@@ -1,260 +1,252 @@
-// Main entry point for the Peer Feedback Application
-// This application analyzes GitHub contributions and provides feedback on their quality
-// and adherence to best practices.
-
+import { createNetwork, createState, createRoutingAgent } from '@inngest/agent-kit'
 import { searchAgent } from './agents/search.js'
-import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
 import { fetcherAgent } from './agents/fetcher.js'
-import { SearchContributionsResult } from './tools/search-contributions.js'
-import { logger } from './services/logger.js'
-import { AnalysisCacheService } from './services/analysis-cache.js'
+import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
 import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
+import { logger } from './services/logger.js'
+import { defaultModel } from './services/models.js'
+import { IncomingMessage, ServerResponse } from 'http'
+import http from 'http'
 
-// Helper function to extract repository and number from GitHub URL
-function extractRepoInfo(url: string): { owner: string; name: string; number: number } {
-  const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)\/(issues|pull|discussions)\/(\d+)/)
-  if (!match) {
-    throw new Error(`Invalid GitHub URL: ${url}`)
-  }
-  return {
-    owner: match[1],
-    name: match[2],
-    number: parseInt(match[4], 10)
-  }
+// Define the network state interface
+interface NetworkState {
+  organization?: string
+  user?: string
+  startDate?: string
+  endDate?: string
+  contributions?: Record<string, {
+    url: string
+    updatedAt: string
+  }>
+  fetchedContributions?: Record<string, {
+    url: string
+    title: string
+    body: string
+    state: string
+    createdAt: string
+    updatedAt: string
+    author: string
+    comments: Array<{
+      author: string
+      body: string
+      createdAt: string
+      updatedAt: string
+    }>
+    reactions: Array<{
+      content: string
+      count: number
+    }>
+  }>
+  noteworthyAnalyses?: string[]
+  summary?: string
+  // Add processing state
+  currentPhase?: 'search' | 'fetch' | 'analyze' | 'summary' | 'complete'
+  currentContributionUrl?: string
 }
 
-// Main application function that orchestrates the contribution analysis process
-// 1. Searches for recent GitHub contributions
-// 2. Extracts relevant contribution data
-// 3. Analyzes each contribution individually using AI
-// 4. Outputs detailed feedback for each contribution
-async function main() {
-  logger.info('Starting Peer Feedback Application')
-  logger.debug('Initializing contribution analysis process')
+interface SearchAgentResult {
+  contributions?: Array<{
+    type: 'issue' | 'pull' | 'discussion'
+    url: string
+    title: string
+    number: number
+    repository: { owner: string; name: string }
+    updatedAt: string
+  }>
+}
 
-  // Configuration
-  const organization = 'open-truss'
-  const user = 'jonmagic'
-  const daysToAnalyze = 730 // 2 years
+interface FetcherAgentResult {
+  url?: string
+  data?: Record<string, any>
+}
 
-  // Calculate date range for contribution search
-  const startDate = new Date(Date.now() - daysToAnalyze * 24 * 60 * 60 * 1000).toISOString()
-  const endDate = new Date().toISOString()
-  logger.debug(`Searching contributions between ${startDate} and ${endDate}`)
+interface AnalyzerAgentResult {
+  role?: string
+  noteworthy?: boolean
+  feedback?: string
+}
 
-  // Step 1: Search contributions using the search agent
-  logger.debug(`Searching for recent contributions by ${user}...`)
-  let searchResult
-  try {
-    const searchPrompt = `Use the search_contributions tool with these parameters:
-- organization: ${organization}
-- author: ${user}
-- since: ${startDate}
-- until: ${endDate}
-- limit: 10`
-    logger.info(searchPrompt)
-    searchResult = await searchAgent.run(searchPrompt)
-  } catch (error) {
-    logger.error('Failed to search for contributions:', error as Error)
-    return
-  }
-
-  // Extract contributions from search result
-  let contributions: Array<{ title: string; url: string; type: 'issue' | 'pull' | 'discussion'; number: number; repository: { owner: string; name: string }; updatedAt: string }> = []
-  for (const toolCall of searchResult.toolCalls) {
-    if (toolCall.role === 'tool_result' && toolCall.content) {
-      try {
-        const { data } = toolCall.content as { data: SearchContributionsResult }
-
-        // Combine all contribution types into a single array with type information
-        contributions = [
-          ...data.issues.map(issue => {
-            const { owner, name, number } = extractRepoInfo(issue.url)
-            return {
-              title: issue.title,
-              url: issue.url,
-              type: 'issue' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: issue.updated_at
-            }
-          }),
-          ...data.pull_requests.map(pr => {
-            const { owner, name, number } = extractRepoInfo(pr.url)
-            return {
-              title: pr.title,
-              url: pr.url,
-              type: 'pull' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: pr.updated_at
-            }
-          }),
-          ...data.discussions.map(discussion => {
-            const { owner, name, number } = extractRepoInfo(discussion.url)
-            return {
-              title: discussion.title,
-              url: discussion.url,
-              type: 'discussion' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: discussion.updated_at
-            }
-          })
-        ]
-
-        if (contributions.length > 0) {
-          logger.debug(`Found ${contributions.length} contributions to analyze:`)
-          for (const contribution of contributions) {
-            logger.debug(`- ${contribution.title} (${contribution.url})`)
-          }
-        }
-      } catch (error) {
-        logger.error('Error processing tool result:', error as Error)
-        logger.debug('Raw tool result: ' + JSON.stringify(toolCall.content, null, 2))
-      }
-    }
-  }
-
-  if (contributions.length === 0) {
-    logger.info('No contributions found to analyze.')
-    return
-  }
-
-  // Step 2: Analyze each contribution individually
-  logger.debug('Starting individual contribution analysis...')
-  logger.debug(`Processing ${contributions.length} contributions sequentially`)
-
-  const noteworthyAnalyses: string[] = []
-
-  for (const [index, contribution] of contributions.entries()) {
-    logger.debug(`Analyzing contribution ${index + 1}/${contributions.length}:`)
-    logger.debug(`Title: ${contribution.title}`)
-    logger.debug(`URL: ${contribution.url}`)
-    logger.debug(`Type: ${contribution.type}`)
-    logger.debug(`Repository: ${contribution.repository.owner}/${contribution.repository.name}`)
-    logger.debug(`Number: ${contribution.number}`)
-
-    let fetcherResult
-    try {
-      // Use the fetcher agent to get detailed contribution data
-      const fetchPrompt = `Fetch the contribution at ${contribution.url} with updatedAt ${contribution.updatedAt}`
-      logger.info(fetchPrompt)
-      fetcherResult = await fetcherAgent.run(fetchPrompt)
-    } catch (error) {
-      logger.error(`Failed to fetch contribution "${contribution.title}":`, error as Error)
-      logger.error('Error details:', JSON.stringify(error, null, 2))
-      continue
-    }
-
-    // Extract the contribution data from the tool result
-    let detailedContribution
-    for (const toolCall of fetcherResult.toolCalls) {
-      logger.debug('Tool call:', JSON.stringify(toolCall, null, 2))
-      if (toolCall.role === 'tool_result' && toolCall.content) {
-        detailedContribution = toolCall.content
-        logger.debug('Found detailed contribution:', JSON.stringify(detailedContribution, null, 2))
-        break
-      }
-    }
-
-    if (!detailedContribution) {
-      logger.error(`Failed to extract details for ${contribution.type} ${contribution.number}`)
-      logger.error('Tool calls:', JSON.stringify(fetcherResult.toolCalls, null, 2))
-      continue
-    }
-
-    // Check analysis cache first
-    const analysisCache = AnalysisCacheService.getInstance()
-    let analysisText = ''
-    const cachedAnalysis = await analysisCache.get(
-      contribution.repository.owner,
-      contribution.repository.name,
-      contribution.type,
-      contribution.number
-    )
-
-    if (cachedAnalysis) {
-      logger.debug('Using cached analysis:')
-      logger.debug('----------------')
-      logger.debug('\n' + cachedAnalysis)
-      analysisText = cachedAnalysis
-    } else {
-      // Format contribution data for analysis
-      const contributionData = JSON.stringify(detailedContribution, null, 2)
-
-      let analysis
-      try {
-        // Analyze the contribution using our detailed analyzer
-        analysis = await contributionAnalyzerAgent.run(contributionData)
-      } catch (error) {
-        logger.error(`Failed to analyze contribution "${contribution.title}":`, error as Error)
-        continue
-      }
-
-      logger.debug('Analysis Results:')
-      logger.debug('----------------')
-      const lastMessage = analysis?.output?.[analysis.output.length - 1]
-      if (lastMessage?.type === 'text' && lastMessage?.content) {
-        if (typeof lastMessage.content === 'string') {
-          analysisText = lastMessage.content
-        } else if (Array.isArray(lastMessage.content)) {
-          analysisText = lastMessage.content.map(c => c.text).join('\n')
-        } else {
-          throw new Error('Unexpected content type from agent')
+// Create the network with a router
+const network = createNetwork({
+  name: 'peer_feedback_network',
+  agents: [searchAgent, fetcherAgent, contributionAnalyzerAgent, summaryAnalyzerAgent],
+  defaultModel,
+  router: createRoutingAgent({
+    name: 'Peer Feedback Router',
+    description: 'Routes between agents to analyze GitHub contributions',
+    system: 'You are a router that coordinates the analysis of GitHub contributions. Based on the current state and call count, determine which agent should run next.',
+    lifecycle: {
+      onRoute: ({ result, network }) => {
+        if (!network?.state) {
+          logger.warn('No network state available')
+          return undefined
         }
 
-        logger.debug('\n' + analysisText)
+        const state = network.state.data as NetworkState
+        const callCount = network.state.results.length
+        const contributionCount = state.contributions ? Object.keys(state.contributions).length : 0
+        const fetchedCount = state.fetchedContributions ? Object.keys(state.fetchedContributions).length : 0
+        const noteworthyCount = state.noteworthyAnalyses?.length || 0
 
-        // Cache the analysis
-        await analysisCache.set(
-          contribution.repository.owner,
-          contribution.repository.name,
-          contribution.type,
-          contribution.number,
-          analysisText
-        )
+        logger.debug(`Router called with callCount: ${callCount}, state: {
+          organization: ${state.organization},
+          user: ${state.user},
+          startDate: ${state.startDate},
+          endDate: ${state.endDate},
+          contributionCount: ${contributionCount},
+          fetchedCount: ${fetchedCount},
+          noteworthyCount: ${noteworthyCount},
+          currentPhase: ${state.currentPhase},
+          currentContributionUrl: ${state.currentContributionUrl}
+        }`)
+
+        // Initialize phase if not set
+        if (!state.currentPhase) {
+          state.currentPhase = 'search'
+        }
+
+        // Handle routing based on current phase
+        switch (state.currentPhase) {
+          case 'search':
+            logger.debug('Routing to github-search agent')
+            state.currentPhase = 'fetch'
+            return ['github-search']
+
+          case 'fetch':
+            if (!state.contributions || Object.keys(state.contributions).length === 0) {
+              logger.warn('No contributions found to fetch')
+              state.currentPhase = 'summary'
+              return ['summary-analyzer']
+            }
+
+            // Get the first contribution URL
+            const contributionUrls = Object.keys(state.contributions)
+            const currentUrl = contributionUrls[0]
+            if (!currentUrl) {
+              logger.warn('No contribution URLs found')
+              state.currentPhase = 'summary'
+              return ['summary-analyzer']
+            }
+
+            const currentContribution = state.contributions[currentUrl]
+            if (!currentContribution) {
+              logger.warn(`No contribution found for URL: ${currentUrl}`)
+              delete state.contributions[currentUrl]
+              return undefined
+            }
+
+            // Set current contribution URL but stay in fetch phase
+            state.currentContributionUrl = currentUrl
+            logger.debug(`Routing to github-fetcher agent for contribution: ${currentUrl}`)
+            return ['github-fetcher', `Fetch the contribution at ${currentUrl} with updatedAt ${currentContribution.updatedAt}`]
+
+          case 'analyze':
+            if (!state.currentContributionUrl) {
+              logger.warn('No current contribution URL for analysis')
+              state.currentPhase = 'fetch'
+              return undefined
+            }
+
+            // Check if we have fetched this contribution
+            if (!state.fetchedContributions?.[state.currentContributionUrl]) {
+              logger.warn('No fetched data for contribution:', state.currentContributionUrl)
+              state.currentPhase = 'fetch'
+              return undefined
+            }
+
+            // After analysis, check if we have more contributions to process
+            if (!state.contributions || Object.keys(state.contributions).length === 0) {
+              logger.info('All contributions processed, moving to summary phase')
+              state.currentPhase = 'summary'
+              return ['summary-analyzer']
+            }
+
+            // Go back to fetch phase for next contribution
+            state.currentPhase = 'fetch'
+            return ['contribution-analyzer']
+
+          case 'summary':
+            // Only run summary analyzer once
+            if (state.summary) {
+              logger.info('Summary generated, moving to complete phase')
+              state.currentPhase = 'complete'
+              return undefined
+            }
+            logger.info('Generating summary of all contributions')
+            return ['summary-analyzer']
+
+          case 'complete':
+            logger.info('Analysis complete, stopping network')
+            return undefined
+
+          default:
+            logger.warn(`Unknown phase: ${state.currentPhase}`)
+            return undefined
+        }
       }
     }
+  })
+})
 
-    // Check if this is a noteworthy contribution
-    if (analysisText.includes('Noteworthy: true')) {
-      noteworthyAnalyses.push(analysisText)
-    }
-  }
-
-  // Step 3: Generate summary feedback from noteworthy analyses
-  if (noteworthyAnalyses.length > 0) {
-    logger.info(`Generating summary feedback from ${noteworthyAnalyses.length} noteworthy contributions...`)
+// Create HTTP server
+const server = http.createServer(async (req: IncomingMessage, res: ServerResponse) => {
+  if (req.url === '/analyze' && req.method === 'POST') {
     try {
-      const prompt = `Please analyze these contribution analyses and provide personalized feedback:
+      logger.info('Received POST request to /analyze')
 
-${noteworthyAnalyses.join('\n\n')}
-
-Focus on identifying patterns of excellence and high-impact growth opportunities. Provide specific examples to support your observations.`
-
-      const result = await summaryAnalyzerAgent.run(prompt)
-      const lastMessage = result.output[result.output.length - 1]
-      if (lastMessage && typeof lastMessage === 'object' && 'content' in lastMessage) {
-        const summary = lastMessage.content as string
-        logger.debug('\nSummary Feedback:')
-        logger.debug('----------------')
-        logger.info('\n' + summary)
-      } else {
-        throw new Error('Unexpected message type from agent')
+      // Read request body
+      let body = ''
+      for await (const chunk of req) {
+        body += chunk
       }
+      logger.debug('Request body:', body)
+
+      const { organization, user, startDate, endDate } = JSON.parse(body)
+      logger.info('Parsed request parameters:', { organization, user, startDate, endDate })
+
+      // Initialize state
+      const state = createState<NetworkState>({
+        organization,
+        user,
+        startDate,
+        endDate
+      })
+      logger.info('Initialized state:', state.data)
+
+      // Run the network
+      logger.info('Starting network run...')
+      const result = await network.run('Analyze contributions', { state })
+      logger.info('Network run completed:', result)
+
+      // Return the results
+      const response = {
+        contributions: state.data.contributions,
+        noteworthyAnalyses: state.data.noteworthyAnalyses,
+        summary: state.data.summary
+      }
+      logger.info('Sending response:', response)
+
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(response))
     } catch (error) {
-      logger.error('Failed to generate summary feedback:', error as Error)
+      logger.error('Error processing request:', error as Error)
+      logger.error('Error stack:', (error as Error).stack)
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'Internal server error' }))
     }
   } else {
-    logger.info('No noteworthy contributions found to summarize.')
+    logger.warn('Received invalid request:', { url: req.url, method: req.method })
+    res.writeHead(404, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ error: 'Not found' }))
   }
+})
 
-  logger.debug('Contribution analysis complete!')
+// Start the server
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const PORT = 3000
+  server.listen(PORT, () => {
+    logger.info(`Server listening on port ${PORT}`)
+  })
 }
 
-// Execute main function and handle any uncaught errors
-main().catch(error => {
-  logger.error('Application error:', error)
-  process.exit(1)
-})
+export { server }

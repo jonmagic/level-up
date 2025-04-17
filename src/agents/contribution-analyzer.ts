@@ -4,65 +4,94 @@
 
 import { createAgent } from '@inngest/agent-kit'
 import { defaultModel } from '../services/models.js'
+import { logger } from '../services/logger.js'
 
-// Creates and exports a specialized agent for analyzing GitHub contributions
-// The agent is configured with a detailed system prompt for comprehensive analysis
+// Creates a helpful agent that can analyze GitHub contributions
 export const contributionAnalyzerAgent = createAgent({
-  // Unique identifier for the agent
   name: 'contribution-analyzer',
-  // System prompt defining the agent's role and analysis criteria
-  system: `You are an expert at analyzing GitHub contributions and providing constructive feedback.
-When given a contribution to analyze, provide a detailed analysis focusing on the user's role and impact:
+  system: `You are a GitHub contribution analyzer assistant.
+Your task is to analyze GitHub contributions (issues, pull requests, and discussions) and provide feedback.
 
-1. Role-Specific Analysis:
-   - Author: Focus on code quality, implementation, and technical decisions
-   - Reviewer: Focus on review quality, feedback effectiveness, and collaboration
-   - Commenter: Focus on communication, knowledge sharing, and community building
-   - Contributor: Focus on contribution impact, project alignment, and technical depth
+Given a contribution, you will:
+1. Analyze the contribution's content, context, and impact
+2. Determine if it's noteworthy based on its quality and impact
+3. Provide constructive feedback on how it could be improved
+4. Return your analysis in a structured JSON format:
+{
+  "role": "AUTHOR | COMMENTER | REVIEWER",
+  "noteworthy": boolean indicating if this is a noteworthy contribution,
+  "feedback": "string with detailed feedback and suggestions"
+}
 
-2. Contribution Quality:
-   - Technical depth and complexity
-   - Code quality and maintainability
-   - Documentation and clarity
-   - Impact on the project
-   - Alignment with project goals
+The role must be one of:
+- AUTHOR: The person who created the issue, PR, or discussion
+- COMMENTER: Someone who provided comments or feedback
+- REVIEWER: Someone who reviewed and approved/rejected changes
 
-3. Best Practices:
-   - Following project conventions
-   - Proper use of GitHub features
-   - Effective communication
-   - Code review practices
-   - Role-appropriate engagement
-
-4. Community Impact:
-   - Collaboration effectiveness
-   - Knowledge sharing
-   - Project improvement
-   - Community engagement
-   - Role-specific contributions
-
-For each category, provide:
-- Strengths and positive aspects
-- Areas for improvement
-- Specific examples from the contribution
-- Actionable suggestions for future contributions
-- Role-specific recommendations
-
-Be constructive and specific in your feedback, using actual examples to illustrate your points.
-Consider the user's role in the contribution when providing feedback and suggestions.
-
-Try to condense the feedback to no more than 250 words. If a contribution isn't noteworthy, just say so
-and that data can be used to filter out low impact contributions.
-
-The final format should be:
-
-Url: <url>
-Role: <role>
-Noteworthy: <true/false>
-<feedback>
-`,
-  // AI model to use for processing requests
+IMPORTANT: Your response must be ONLY the JSON object, with no additional text or explanation.`,
   model: defaultModel,
-  // No additional tools needed as this agent focuses on analysis
-  tools: []
+  tools: [],
+  lifecycle: {
+    onStart: ({ prompt, history = [], network }) => {
+      const firstMessage = prompt[0]
+      logger.debug('\nAnalyzer Agent - Starting with prompt:', {
+        messageType: firstMessage?.type,
+        role: firstMessage?.role,
+        contentLength: firstMessage?.type === 'text' ? firstMessage.content.length : 0
+      })
+      return { prompt, history, stop: false }
+    },
+    onResponse: ({ result }) => {
+      const { output, toolCalls } = result
+      logger.debug('\nAnalyzer Agent - Model Response:', {
+        outputLength: output.length,
+        toolCallsCount: toolCalls.length,
+        lastMessageType: output[output.length - 1]?.type
+      })
+      return result
+    },
+    onFinish: ({ result, network }) => {
+      logger.debug('\nAnalyzer Agent - Final Result:', {
+        outputLength: result.output.length,
+        toolCallsCount: result.toolCalls.length,
+        createdAt: result.createdAt
+      })
+
+      // Extract analysis from the last message
+      const lastMessage = result.output[result.output.length - 1]
+      if (!lastMessage || lastMessage.type !== 'text') {
+        logger.error('No text message found in result')
+        return result
+      }
+
+      try {
+        // Handle both string and TextContent[] content types
+        const content = typeof lastMessage.content === 'string'
+          ? lastMessage.content
+          : lastMessage.content.map(c => c.text).join('')
+
+        // Try to parse the content as JSON
+        const analysis = JSON.parse(content)
+
+        // Update network state with analysis
+        if (network?.state) {
+          if (!network.state.data.noteworthyAnalyses) {
+            network.state.data.noteworthyAnalyses = []
+          }
+          if (analysis.noteworthy) {
+            network.state.data.noteworthyAnalyses.push(analysis)
+          }
+          logger.debug('Updated network state with analysis:', {
+            role: analysis.role,
+            noteworthy: analysis.noteworthy,
+            feedbackLength: analysis.feedback.length
+          })
+        }
+      } catch (error) {
+        logger.error('Error parsing analysis:', error as Error)
+      }
+
+      return result
+    }
+  }
 })
