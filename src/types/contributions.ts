@@ -47,6 +47,29 @@ export interface IssueContribution extends BaseContribution {
   state: 'open' | 'closed'
 }
 
+// Interface for a GitHub commit
+export interface Commit {
+  // The commit message
+  message: string
+  // The commit hash
+  oid: string
+  // The commit author's username
+  author: string
+  // ISO timestamp when the commit was created
+  createdAt: string
+  // Array of files changed in this commit
+  changedFiles: Array<{
+    // Path to the changed file
+    path: string
+    // Number of lines added
+    additions: number
+    // Number of lines removed
+    deletions: number
+    // The actual diff patch
+    patch: string | undefined
+  }>
+}
+
 // Interface for a GitHub pull request contribution
 export interface PullRequestContribution extends BaseContribution {
   // Type discriminator
@@ -82,6 +105,8 @@ export interface PullRequestContribution extends BaseContribution {
     // Number of lines removed
     deletions: number
   }>
+  // Array of commits in the pull request
+  commits: Commit[]
 }
 
 // Interface for a GitHub discussion contribution

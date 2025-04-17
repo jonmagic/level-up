@@ -8,7 +8,7 @@ import { env } from '../config.js'
 import { logger } from './logger.js'
 
 // Creates an authenticated Octokit instance for REST API calls
-const octokit = new Octokit({
+export const octokit = new Octokit({
   auth: env.github.token
 })
 

@@ -8,6 +8,8 @@ import { PullRequestContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
 import { ContributionCacheService } from '../services/contribution-cache.js'
 import { AnalysisCacheService } from '../services/analysis-cache.js'
+import { octokit } from '../services/github.js'
+import type { RestEndpointMethodTypes } from '@octokit/rest'
 
 // Schema for validating fetch pull request parameters
 const FetchPullRequestSchema = z.object({
@@ -141,6 +143,36 @@ export const fetchPullRequest = createTool({
       reviews: pr.reviews.nodes.length
     })
 
+    // Fetch commits using REST API
+    const commitsResponse = await octokit.pulls.listCommits({
+      owner,
+      repo,
+      pull_number: number,
+      per_page: 100
+    })
+
+    const commits = await Promise.all(commitsResponse.data.map(async (commit) => {
+      // Get the diff for each commit
+      const diffResponse = await octokit.repos.getCommit({
+        owner,
+        repo,
+        ref: commit.sha
+      })
+
+      return {
+        message: commit.commit.message,
+        oid: commit.sha,
+        author: commit.author?.login || commit.commit.author?.name || 'unknown',
+        createdAt: commit.commit.author?.date || commit.commit.committer?.date || new Date().toISOString(),
+        changedFiles: diffResponse.data.files?.map(file => ({
+          path: file.filename,
+          additions: file.additions,
+          deletions: file.deletions,
+          patch: file.patch
+        })) || []
+      }
+    }))
+
     const contribution: PullRequestContribution = {
       type: 'pull',
       title: pr.title,
@@ -161,6 +193,7 @@ export const fetchPullRequest = createTool({
         comments: []
       })),
       files: [],
+      commits,
       repository: {
         owner,
         name: repo
