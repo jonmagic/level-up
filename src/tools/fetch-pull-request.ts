@@ -130,12 +130,13 @@ export const fetchPullRequest = createTool({
       number
     })
 
-    const pr = result.repository.pullRequest
-    if (!pr) {
+    // Check if repository exists and has a pullRequest field
+    if (!result.repository?.pullRequest) {
       logger.error('Pull request not found:', { owner, repo, number })
       throw new Error(`Could not find pull request ${owner}/${repo}#${number}`)
     }
 
+    const pr = result.repository.pullRequest
     logger.debug('Pull request found:', {
       title: pr.title,
       state: pr.state,
