@@ -9,6 +9,7 @@ import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
 import { AnalysisCacheService } from './services/analysis-cache.js'
 import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
+import { parseArgs } from './cli.js'
 
 // Helper function to extract repository and number from GitHub URL
 function extractRepoInfo(url: string): { owner: string; name: string; number: number } {
@@ -32,15 +33,14 @@ async function main() {
   logger.info('Starting Peer Feedback Application')
   logger.debug('Initializing contribution analysis process')
 
-  // Configuration
-  const organization = 'open-truss'
-  const user = 'jonmagic'
-  const daysToAnalyze = 730 // 2 years
+  // Parse command line arguments
+  const { organization, user, startDate, endDate } = parseArgs()
 
-  // Calculate date range for contribution search
-  const startDate = new Date(Date.now() - daysToAnalyze * 24 * 60 * 60 * 1000).toISOString()
-  const endDate = new Date().toISOString()
-  logger.debug(`Searching contributions between ${startDate} and ${endDate}`)
+  // Convert dates to ISO format
+  const startDateISO = new Date(startDate).toISOString()
+  const endDateISO = new Date(endDate).toISOString()
+
+  logger.debug(`Searching contributions between ${startDateISO} and ${endDateISO}`)
 
   // Step 1: Search contributions using the search agent
   logger.debug(`Searching for recent contributions by ${user}...`)
@@ -49,8 +49,8 @@ async function main() {
     const searchPrompt = `Use the search_contributions tool with these parameters:
 - organization: ${organization}
 - author: ${user}
-- since: ${startDate}
-- until: ${endDate}
+- since: ${startDateISO}
+- until: ${endDateISO}
 - limit: 10`
     logger.info(searchPrompt)
     searchResult = await searchAgent.run(searchPrompt)
