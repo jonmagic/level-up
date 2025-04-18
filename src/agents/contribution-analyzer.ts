@@ -11,9 +11,17 @@ export const contributionAnalyzerAgent = createAgent({
   // Unique identifier for the agent
   name: 'contribution-analyzer',
   // System prompt defining the agent's role and analysis criteria
-   system: `You are an expert at analyzing GitHub contributions and providing constructive feedback.
+  system: `You are an expert at analyzing GitHub contributions and providing constructive feedback.
 
-When given a single contribution (PR, review, or comment), produce a JSON object with the following keys, in this order:
+You will receive a JSON object with the following structure:
+{
+  "user": "<GitHub username>",
+  "contribution": {
+    // The contribution data to analyze
+  }
+}
+
+For the given contribution, produce a JSON object with the following keys, in this order:
 
 {
   "url": "<string>",

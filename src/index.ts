@@ -191,7 +191,13 @@ async function main() {
         // Analyze the contribution using our detailed analyzer
         const cachePath = analysisCache.getCachePath(user, contribution.repository.owner, contribution.repository.name, contribution.type, contribution.number)
         logger.info(`Analyzing contribution from ${cachePath}`)
-        analysis = await contributionAnalyzerAgent.run(contributionData)
+
+        // Analyze the specific contribution
+        const analysisInput = {
+          user,
+          contribution: detailedContribution
+        }
+        analysis = await contributionAnalyzerAgent.run(JSON.stringify(analysisInput, null, 2))
       } catch (error) {
         logger.error(`Failed to analyze contribution "${contribution.title}":`, error as Error)
         continue
@@ -249,13 +255,11 @@ async function main() {
   if (noteworthyAnalyses.length > 0) {
     logger.info(`Generating summary feedback from ${noteworthyAnalyses.length} noteworthy contributions...`)
     try {
-      const prompt = `Please analyze these contribution analyses and provide personalized feedback:
-
-${noteworthyAnalyses.join('\n\n')}
-
-Focus on identifying patterns of excellence and high-impact growth opportunities. Provide specific examples to support your observations.`
-
-      const result = await summaryAnalyzerAgent.run(prompt)
+      const summaryInput = {
+        user,
+        analyses: noteworthyAnalyses.map(analysis => JSON.parse(analysis))
+      }
+      const result = await summaryAnalyzerAgent.run(JSON.stringify(summaryInput, null, 2))
       const lastMessage = result.output[result.output.length - 1]
       if (lastMessage && typeof lastMessage === 'object' && 'content' in lastMessage) {
         const summary = lastMessage.content as string
