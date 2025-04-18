@@ -10,6 +10,7 @@ import { logger } from './services/logger.js'
 import { AnalysisCacheService, type AnalysisData } from './services/analysis-cache.js'
 import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
 import { parseArgs } from './cli.js'
+import { readFile } from 'fs/promises'
 
 // Helper function to extract repository and number from GitHub URL
 function extractRepoInfo(url: string): { owner: string; name: string; number: number } {
@@ -34,7 +35,17 @@ async function main() {
   logger.debug('Initializing contribution analysis process')
 
   // Parse command line arguments
-  const { organization, user, startDate, endDate } = parseArgs()
+  const { organization, user, startDate, endDate, roleDescription } = parseArgs()
+
+  // Read role description file
+  let roleDescriptionText: string
+  try {
+    roleDescriptionText = await readFile(roleDescription, 'utf-8')
+    logger.debug('Role description loaded successfully')
+  } catch (error) {
+    logger.error('Failed to read role description file:', error as Error)
+    return
+  }
 
   // Set the user in the analysis cache service
   const analysisCache = AnalysisCacheService.getInstance()
@@ -195,7 +206,8 @@ async function main() {
         // Analyze the specific contribution
         const analysisInput = {
           user,
-          contribution: detailedContribution
+          contribution: detailedContribution,
+          roleDescription: roleDescriptionText
         }
         analysis = await contributionAnalyzerAgent.run(JSON.stringify(analysisInput, null, 2))
       } catch (error) {
@@ -257,7 +269,8 @@ async function main() {
     try {
       const summaryInput = {
         user,
-        analyses: noteworthyAnalyses.map(analysis => JSON.parse(analysis))
+        analyses: noteworthyAnalyses.map(analysis => JSON.parse(analysis)),
+        roleDescription: roleDescriptionText
       }
       const result = await summaryAnalyzerAgent.run(JSON.stringify(summaryInput, null, 2))
       const lastMessage = result.output[result.output.length - 1]

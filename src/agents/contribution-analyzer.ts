@@ -18,7 +18,8 @@ You will receive a JSON object with the following structure:
   "user": "<GitHub username>",
   "contribution": {
     // The contribution data to analyze
-  }
+  },
+  "roleDescription": "<The role description text>"
 }
 
 For the given contribution, produce a JSON object with the following keys, in this order:
@@ -46,6 +47,12 @@ Analysis guidelines
 
 4. Community impact signals
    Collaboration effectiveness ▸ knowledge diffusion ▸ role-appropriate engagement
+
+5. Role alignment
+   • Consider the role description when evaluating the contribution
+   • Assess how well the contribution aligns with the expected responsibilities
+   • Identify opportunities for growth within the role's context
+   • Highlight areas where the contribution exceeds role expectations
 
 Scoring "noteworthy"
 - Pull requests still open: always "noteworthy": false (regardless of content).
