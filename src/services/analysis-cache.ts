@@ -45,6 +45,14 @@ export class AnalysisCacheService {
     this.user = user
   }
 
+  // Gets the cache file path for an analysis
+  getCachePath(user: string, owner: string, repo: string, type: string, number: number): string {
+    if (!this.user) {
+      throw new Error('User must be set before using AnalysisCacheService')
+    }
+    return join(CACHE_DIR, this.user, owner, repo, type, `${number}.json`)
+  }
+
   async get(
     owner: string,
     repo: string,
@@ -55,7 +63,7 @@ export class AnalysisCacheService {
       throw new Error('User must be set before using AnalysisCacheService')
     }
 
-    const cachePath = getCachePath(this.user, owner, repo, type, number)
+    const cachePath = this.getCachePath(this.user, owner, repo, type, number)
 
     try {
       // Ensure the directory exists
@@ -82,7 +90,7 @@ export class AnalysisCacheService {
       throw new Error('User must be set before using AnalysisCacheService')
     }
 
-    const cachePath = getCachePath(this.user, owner, repo, type, number)
+    const cachePath = this.getCachePath(this.user,owner, repo, type, number)
     const entry: CacheEntry = {
       data,
       updatedAt: new Date().toISOString(),
