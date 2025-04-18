@@ -36,6 +36,10 @@ async function main() {
   // Parse command line arguments
   const { organization, user, startDate, endDate } = parseArgs()
 
+  // Set the user in the analysis cache service
+  const analysisCache = AnalysisCacheService.getInstance()
+  analysisCache.setUser(user)
+
   // Convert dates to ISO format
   const startDateISO = new Date(startDate).toISOString()
   const endDateISO = new Date(endDate).toISOString()
@@ -165,7 +169,6 @@ async function main() {
     }
 
     // Check analysis cache first
-    const analysisCache = AnalysisCacheService.getInstance()
     let analysisText = ''
     const cachedAnalysis = await analysisCache.get(
       contribution.repository.owner,
