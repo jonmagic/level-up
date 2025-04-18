@@ -190,12 +190,6 @@ async function main() {
       continue
     }
 
-    // Skip analysis of open pull requests
-    if (contribution.type === 'pull' && 'state' in detailedContribution && detailedContribution.state === 'open') {
-      logger.debug(`Skipping analysis of open pull request: ${contribution.title}`)
-      continue
-    }
-
     // Check analysis cache first
     let analysisData: AnalysisData | null = null
     const cachedAnalysis = await analysisCache.get(
@@ -274,7 +268,14 @@ async function main() {
     }
 
     if (analysisData) {
-      analyses.push(analysisData)
+      // Only add pull requests that are merged or closed
+      if (detailedContribution.type === 'pull') {
+        if (detailedContribution.state === 'merged' || detailedContribution.state === 'closed') {
+          analyses.push(analysisData)
+        }
+      } else {
+        analyses.push(analysisData)
+      }
     }
   }
 
