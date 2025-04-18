@@ -21,6 +21,10 @@ type RepoInfo = {
   number: number
 }
 
+type DetailedContribution = {
+  data: PullRequestContribution | IssueContribution | DiscussionContribution
+}
+
 // Helper function to extract repository and number from GitHub URL
 // This is used to parse GitHub URLs consistently across the application
 export function extractRepoInfo(url: string): RepoInfo {
@@ -173,11 +177,11 @@ async function main() {
     }
 
     // Extract the contribution data from the tool result
-    let detailedContribution: PullRequestContribution | IssueContribution | DiscussionContribution | undefined
+    let detailedContribution: DetailedContribution | undefined
     for (const toolCall of fetcherResult.toolCalls) {
       logger.debug('Tool call:', JSON.stringify(toolCall, null, 2))
       if (toolCall.role === 'tool_result' && toolCall.content) {
-        const content = toolCall.content as PullRequestContribution | IssueContribution | DiscussionContribution
+        const content = toolCall.content as DetailedContribution
         detailedContribution = content
         logger.debug('Found detailed contribution:', JSON.stringify(detailedContribution, null, 2))
         break
@@ -269,8 +273,8 @@ async function main() {
 
     if (analysisData) {
       // Only add pull requests that are merged or closed
-      if (detailedContribution.type === 'pull') {
-        if (detailedContribution.state === 'merged' || detailedContribution.state === 'closed') {
+      if (detailedContribution.data.type === 'pull') {
+        if (detailedContribution.data.state === 'merged' || detailedContribution.data.state === 'closed') {
           analyses.push(analysisData)
         }
       } else {
