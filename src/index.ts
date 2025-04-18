@@ -7,7 +7,7 @@ import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
 import { fetcherAgent } from './agents/fetcher.js'
 import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
-import { AnalysisCacheService } from './services/analysis-cache.js'
+import { AnalysisCacheService, type AnalysisData } from './services/analysis-cache.js'
 import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
 import { parseArgs } from './cli.js'
 
@@ -64,7 +64,7 @@ async function main() {
   }
 
   // Extract contributions from search result
-  let contributions: Array<{ title: string; url: string; type: 'issue' | 'pull' | 'discussion'; number: number; repository: { owner: string; name: string }; updatedAt: string }> = []
+  let contributions: Array<{ title: string; url: string; type: 'issues' | 'pull' | 'discussions'; number: number; repository: { owner: string; name: string }; updatedAt: string }> = []
   for (const toolCall of searchResult.toolCalls) {
     if (toolCall.role === 'tool_result' && toolCall.content) {
       try {
@@ -77,7 +77,7 @@ async function main() {
             return {
               title: issue.title,
               url: issue.url,
-              type: 'issue' as const,
+              type: 'issues' as const,
               number,
               repository: { owner, name },
               updatedAt: issue.updated_at
@@ -99,7 +99,7 @@ async function main() {
             return {
               title: discussion.title,
               url: discussion.url,
-              type: 'discussion' as const,
+              type: 'discussions' as const,
               number,
               repository: { owner, name },
               updatedAt: discussion.updated_at
@@ -169,7 +169,7 @@ async function main() {
     }
 
     // Check analysis cache first
-    let analysisText = ''
+    let analysisData: AnalysisData | null = null
     const cachedAnalysis = await analysisCache.get(
       contribution.repository.owner,
       contribution.repository.name,
@@ -180,8 +180,8 @@ async function main() {
     if (cachedAnalysis) {
       logger.debug('Using cached analysis:')
       logger.debug('----------------')
-      logger.debug('\n' + cachedAnalysis)
-      analysisText = cachedAnalysis
+      logger.debug('\n' + JSON.stringify(cachedAnalysis, null, 2))
+      analysisData = cachedAnalysis
     } else {
       // Format contribution data for analysis
       const contributionData = JSON.stringify(detailedContribution, null, 2)
@@ -189,6 +189,8 @@ async function main() {
       let analysis
       try {
         // Analyze the contribution using our detailed analyzer
+        const cachePath = analysisCache.getCachePath(user, contribution.repository.owner, contribution.repository.name, contribution.type, contribution.number)
+        logger.info(`Analyzing contribution from ${cachePath}`)
         analysis = await contributionAnalyzerAgent.run(contributionData)
       } catch (error) {
         logger.error(`Failed to analyze contribution "${contribution.title}":`, error as Error)
@@ -199,6 +201,7 @@ async function main() {
       logger.debug('----------------')
       const lastMessage = analysis?.output?.[analysis.output.length - 1]
       if (lastMessage?.type === 'text' && lastMessage?.content) {
+        let analysisText = ''
         if (typeof lastMessage.content === 'string') {
           analysisText = lastMessage.content
         } else if (Array.isArray(lastMessage.content)) {
@@ -209,20 +212,36 @@ async function main() {
 
         logger.debug('\n' + analysisText)
 
-        // Cache the analysis
-        await analysisCache.set(
-          contribution.repository.owner,
-          contribution.repository.name,
-          contribution.type,
-          contribution.number,
-          analysisText
-        )
+        // Parse the analysis text into structured data
+        try {
+          const parsedData = JSON.parse(analysisText)
+          analysisData = {
+            url: contribution.url,
+            role: parsedData.role || 'COMMENTER',
+            noteworthy: parsedData.noteworthy || false,
+            summary: parsedData.summary || '',
+            opportunities: parsedData.opportunities || '',
+            threats: parsedData.threats || ''
+          }
+
+          // Cache the analysis
+          await analysisCache.set(
+            contribution.repository.owner,
+            contribution.repository.name,
+            contribution.type,
+            contribution.number,
+            analysisData
+          )
+        } catch (error) {
+          logger.error('Failed to parse analysis data:', error)
+          continue
+        }
       }
     }
 
     // Check if this is a noteworthy contribution
-    if (analysisText.includes('Noteworthy: true')) {
-      noteworthyAnalyses.push(analysisText)
+    if (analysisData?.noteworthy) {
+      noteworthyAnalyses.push(JSON.stringify(analysisData, null, 2))
     }
   }
 

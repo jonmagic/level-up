@@ -14,14 +14,19 @@ async function ensureCacheDir() {
   }
 }
 
-// Get cache file path for an analysis
-function getCachePath(user: string, owner: string, repo: string, type: string, number: number): string {
-  return join(CACHE_DIR, user, owner, repo, type, `${number}.json`)
+// Analysis data type
+export interface AnalysisData {
+  url: string
+  role: string
+  noteworthy: boolean
+  summary: string
+  opportunities: string
+  threats: string
 }
 
 // Cache entry type
 interface CacheEntry {
-  data: string
+  data: AnalysisData
   updatedAt: string
   cachedAt: string
 }
@@ -58,7 +63,7 @@ export class AnalysisCacheService {
     repo: string,
     type: string,
     number: number
-  ): Promise<string | null> {
+  ): Promise<AnalysisData | null> {
     if (!this.user) {
       throw new Error('User must be set before using AnalysisCacheService')
     }
@@ -84,7 +89,7 @@ export class AnalysisCacheService {
     repo: string,
     type: string,
     number: number,
-    data: string
+    data: AnalysisData
   ): Promise<void> {
     if (!this.user) {
       throw new Error('User must be set before using AnalysisCacheService')
