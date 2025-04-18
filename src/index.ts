@@ -148,7 +148,7 @@ async function main() {
   logger.debug('Starting individual contribution analysis...')
   logger.debug(`Processing ${contributions.length} contributions sequentially`)
 
-  const noteworthyAnalyses: string[] = []
+  const analyses: AnalysisData[] = []
 
   for (const [index, contribution] of contributions.entries()) {
     logger.debug(`Analyzing contribution ${index + 1}/${contributions.length}:`)
@@ -239,12 +239,14 @@ async function main() {
         try {
           const parsedData = JSON.parse(analysisText)
           analysisData = {
+            user,
             url: contribution.url,
-            role: parsedData.role || 'COMMENTER',
-            noteworthy: parsedData.noteworthy || false,
-            summary: parsedData.summary || '',
-            opportunities: parsedData.opportunities || '',
-            threats: parsedData.threats || ''
+            contribution_type: contribution.type === 'pull' ? 'pull_request' : contribution.type as 'issue' | 'discussion',
+            role: parsedData.role,
+            impact: parsedData.impact,
+            technical_quality: parsedData.technical_quality,
+            collaboration: parsedData.collaboration,
+            alignment_with_goals: parsedData.alignment_with_goals
           }
 
           // Cache the analysis
@@ -262,19 +264,18 @@ async function main() {
       }
     }
 
-    // Check if this is a noteworthy contribution
-    if (analysisData?.noteworthy) {
-      noteworthyAnalyses.push(JSON.stringify(analysisData, null, 2))
+    if (analysisData) {
+      analyses.push(analysisData)
     }
   }
 
-  // Step 3: Generate summary feedback from noteworthy analyses
-  if (noteworthyAnalyses.length > 0) {
-    logger.info(`Generating summary feedback from ${noteworthyAnalyses.length} noteworthy contributions...`)
+  // Step 3: Generate summary feedback from all analyses
+  if (analyses.length > 0) {
+    logger.info(`Generating summary feedback from ${analyses.length} contributions...`)
     try {
       const summaryInput = {
         user,
-        analyses: noteworthyAnalyses.map(analysis => JSON.parse(analysis)),
+        analyses,
         roleDescription: roleDescriptionText
       }
       const result = await summaryAnalyzerAgent.run(JSON.stringify(summaryInput, null, 2))
@@ -291,7 +292,7 @@ async function main() {
       logger.error('Failed to generate summary feedback:', error as Error)
     }
   } else {
-    logger.info('No noteworthy contributions found to summarize.')
+    logger.info('No contributions found to summarize.')
   }
 
   logger.debug('Contribution analysis complete!')

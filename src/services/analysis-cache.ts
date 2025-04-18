@@ -15,13 +15,45 @@ async function ensureCacheDir() {
 }
 
 // Analysis data type
-export interface AnalysisData {
-  url: string
-  role: string
-  noteworthy: boolean
+export type ContributionType = 'issue' | 'pull_request' | 'discussion'
+export type RoleType = 'author' | 'reviewer' | 'commenter' | 'contributor'
+export type ImportanceLevel = 'high' | 'medium' | 'low'
+export type QualityLevel = 'excellent' | 'good' | 'adequate' | 'needs_improvement' | 'n/a'
+export type AlignmentLevel = 'strong' | 'moderate' | 'weak'
+
+export interface ImpactAnalysis {
   summary: string
-  opportunities: string
-  threats: string
+  importance: ImportanceLevel
+}
+
+export interface TechnicalQualityAnalysis {
+  applicable: boolean
+  analysis: string
+  complexity: 'high' | 'medium' | 'low' | 'n/a'
+  quality: QualityLevel
+  standards_adherence: QualityLevel
+}
+
+export interface CollaborationAnalysis {
+  analysis: string
+  communication: QualityLevel
+  helpfulness: QualityLevel
+}
+
+export interface AlignmentAnalysis {
+  analysis: string
+  alignment: AlignmentLevel
+}
+
+export interface AnalysisData {
+  user: string
+  url: string
+  contribution_type: ContributionType
+  role: RoleType
+  impact: ImpactAnalysis
+  technical_quality: TechnicalQualityAnalysis
+  collaboration: CollaborationAnalysis
+  alignment_with_goals: AlignmentAnalysis
 }
 
 // Cache entry type
@@ -95,7 +127,7 @@ export class AnalysisCacheService {
       throw new Error('User must be set before using AnalysisCacheService')
     }
 
-    const cachePath = this.getCachePath(this.user,owner, repo, type, number)
+    const cachePath = this.getCachePath(this.user, owner, repo, type, number)
     const entry: CacheEntry = {
       data,
       updatedAt: new Date().toISOString(),
