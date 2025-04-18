@@ -12,6 +12,7 @@ import { AnalysisCacheService, type AnalysisData } from './services/analysis-cac
 import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
 import { parseArgs } from './cli.js'
 import { type ExecutiveSummary } from './types/summary.js'
+import { type PullRequestContribution, type IssueContribution, type DiscussionContribution } from './types/contributions.js'
 
 // Type definitions
 type RepoInfo = {
@@ -172,11 +173,12 @@ async function main() {
     }
 
     // Extract the contribution data from the tool result
-    let detailedContribution
+    let detailedContribution: PullRequestContribution | IssueContribution | DiscussionContribution | undefined
     for (const toolCall of fetcherResult.toolCalls) {
       logger.debug('Tool call:', JSON.stringify(toolCall, null, 2))
       if (toolCall.role === 'tool_result' && toolCall.content) {
-        detailedContribution = toolCall.content
+        const content = toolCall.content as PullRequestContribution | IssueContribution | DiscussionContribution
+        detailedContribution = content
         logger.debug('Found detailed contribution:', JSON.stringify(detailedContribution, null, 2))
         break
       }
@@ -185,6 +187,12 @@ async function main() {
     if (!detailedContribution) {
       logger.error(`Failed to extract details for ${contribution.type} ${contribution.number}`)
       logger.error('Tool calls:', JSON.stringify(fetcherResult.toolCalls, null, 2))
+      continue
+    }
+
+    // Skip analysis of open pull requests
+    if (contribution.type === 'pull' && 'state' in detailedContribution && detailedContribution.state === 'open') {
+      logger.debug(`Skipping analysis of open pull request: ${contribution.title}`)
       continue
     }
 
