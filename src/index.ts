@@ -2,6 +2,7 @@
 // This application analyzes GitHub contributions and provides feedback on their quality
 // and adherence to best practices.
 
+import { readFile } from 'fs/promises'
 import { searchAgent } from './agents/search.js'
 import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
 import { fetcherAgent } from './agents/fetcher.js'
@@ -10,10 +11,17 @@ import { logger } from './services/logger.js'
 import { AnalysisCacheService, type AnalysisData } from './services/analysis-cache.js'
 import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
 import { parseArgs } from './cli.js'
-import { readFile } from 'fs/promises'
+
+// Type definitions
+type RepoInfo = {
+  owner: string
+  name: string
+  number: number
+}
 
 // Helper function to extract repository and number from GitHub URL
-function extractRepoInfo(url: string): { owner: string; name: string; number: number } {
+// This is used to parse GitHub URLs consistently across the application
+export function extractRepoInfo(url: string): RepoInfo {
   const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)\/(issues|pull|discussions)\/(\d+)/)
   if (!match) {
     throw new Error(`Invalid GitHub URL: ${url}`)
@@ -194,9 +202,6 @@ async function main() {
       logger.debug('\n' + JSON.stringify(cachedAnalysis, null, 2))
       analysisData = cachedAnalysis
     } else {
-      // Format contribution data for analysis
-      const contributionData = JSON.stringify(detailedContribution, null, 2)
-
       let analysis
       try {
         // Analyze the contribution using our detailed analyzer
