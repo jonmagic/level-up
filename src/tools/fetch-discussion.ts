@@ -26,7 +26,6 @@ interface DiscussionResponse extends GitHubResponse {
       body: string
       url: string
       updatedAt: string
-      state: string
       category: {
         name: string
       }
@@ -94,7 +93,6 @@ export const fetchDiscussion = createTool({
             body
             url
             updatedAt
-            state
             category {
               name
             }
@@ -152,9 +150,6 @@ export const fetchDiscussion = createTool({
 
     logger.debug('Discussion found:', {
       title: discussion.title,
-      state: discussion.state,
-      category: discussion.category.name,
-      isAnswered: discussion.isAnswered,
       comments: discussion.comments.nodes.length,
       answers: discussion.answer ? 1 : 0
     })
@@ -165,7 +160,6 @@ export const fetchDiscussion = createTool({
       body: discussion.body,
       url: discussion.url,
       updatedAt: discussion.updatedAt,
-      state: discussion.state.toLowerCase() as 'open' | 'closed',
       category: discussion.category.name,
       isAnswered: discussion.isAnswered,
       answer: discussion.answer ? {

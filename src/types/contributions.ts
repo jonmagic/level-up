@@ -113,8 +113,6 @@ export interface PullRequestContribution extends BaseContribution {
 export interface DiscussionContribution extends BaseContribution {
   // Type discriminator
   type: 'discussion'
-  // Current state of the discussion
-  state: 'open' | 'closed'
   // Category of the discussion
   category: string
   // Array of answers to the discussion
