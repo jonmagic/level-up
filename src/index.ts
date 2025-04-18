@@ -303,21 +303,23 @@ async function main() {
 
           // Log the structured summary
           logger.info(`
-Role Summary:
+# ${summaryJson.user}
+
+## Role Summary:
 ${summaryJson.role_summary}
 
-High-Level Performance Summary:
+## High-Level Performance Summary:
 ${summaryJson.high_level_performance_summary}
 
-Key Strengths:
+## Key Strengths:
 1. ${summaryJson.key_strengths[0]}
 2. ${summaryJson.key_strengths[1]}
 
-Areas for Improvement:
+##Areas for Improvement:
 1. ${summaryJson.areas_for_improvement[0]}
 2. ${summaryJson.areas_for_improvement[1]}
 
-Standout Contributions:
+## Standout Contributions:
 ${summaryJson.standout_contributions.map((contribution, index) =>
   `${index + 1}. ${contribution.url} (${contribution.contribution_type})
    ${contribution.reason}`
