@@ -316,7 +316,7 @@ ${summaryJson.high_level_performance_summary}
 1. ${summaryJson.key_strengths[0]}
 2. ${summaryJson.key_strengths[1]}
 
-##Areas for Improvement:
+## Areas for Improvement:
 1. ${summaryJson.areas_for_improvement[0]}
 2. ${summaryJson.areas_for_improvement[1]}
 
