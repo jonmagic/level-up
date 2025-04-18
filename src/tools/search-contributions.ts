@@ -128,15 +128,19 @@ export const searchContributions = createTool({
       let hasNextPage = true
       let endCursor = null
       let pageCount = 0
+      let totalFetched = 0
 
-      while (hasNextPage) {
+      while (hasNextPage && (!limit || totalFetched < limit)) {
         pageCount++
         logger.debug(`\nFetching page ${pageCount} for ${type} query...`)
         logger.debug(`Current cursor: ${endCursor || 'initial'}`)
 
+        // Calculate how many items to fetch on this page
+        const itemsToFetch = limit ? Math.min(100, limit - totalFetched) : 100
+
         const response: GitHubSearchResponse = await executeQuery<GitHubSearchResponse>(query, {
           searchQuery,
-          first: limit,
+          first: itemsToFetch,
           after: endCursor
         })
 
@@ -145,16 +149,18 @@ export const searchContributions = createTool({
 
         const nodesCount = response.search.nodes.length
         allNodes.push(...response.search.nodes)
+        totalFetched += nodesCount
         hasNextPage = response.search.pageInfo.hasNextPage
         endCursor = response.search.pageInfo.endCursor
 
         logger.debug(`Fetched ${nodesCount} nodes on page ${pageCount}`)
+        logger.debug(`Total fetched: ${totalFetched}`)
         logger.debug(`Has next page: ${hasNextPage}`)
         logger.debug(`Next cursor: ${endCursor || 'none'}`)
 
-        // If limit is set, break after first page
-        if (limit) {
-          logger.debug('Limit set, stopping after first page')
+        // If we've reached the limit, stop fetching
+        if (limit && totalFetched >= limit) {
+          logger.debug(`Reached limit of ${limit}, stopping pagination`)
           break
         }
       }
