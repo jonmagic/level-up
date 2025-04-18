@@ -11,6 +11,7 @@ import { logger } from './services/logger.js'
 import { AnalysisCacheService, type AnalysisData } from './services/analysis-cache.js'
 import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
 import { parseArgs } from './cli.js'
+import { type ExecutiveSummary } from './types/summary.js'
 
 // Type definitions
 type RepoInfo = {
@@ -281,10 +282,43 @@ async function main() {
       const result = await summaryAnalyzerAgent.run(JSON.stringify(summaryInput, null, 2))
       const lastMessage = result.output[result.output.length - 1]
       if (lastMessage && typeof lastMessage === 'object' && 'content' in lastMessage) {
-        const summary = lastMessage.content as string
-        logger.debug('\nSummary Feedback:')
-        logger.debug('----------------')
-        logger.info('\n' + summary)
+        let summaryJson: ExecutiveSummary
+        try {
+          // Parse the JSON content
+          summaryJson = JSON.parse(lastMessage.content as string) as ExecutiveSummary
+
+          // Validate the required fields
+          if (!summaryJson.user || !summaryJson.role_summary || !summaryJson.high_level_performance_summary ||
+              !summaryJson.key_strengths || !summaryJson.areas_for_improvement || !summaryJson.standout_contributions) {
+            throw new Error('Invalid summary JSON structure')
+          }
+
+          // Log the structured summary
+          logger.info(`
+Role Summary:
+${summaryJson.role_summary}
+
+High-Level Performance Summary:
+${summaryJson.high_level_performance_summary}
+
+Key Strengths:
+1. ${summaryJson.key_strengths[0]}
+2. ${summaryJson.key_strengths[1]}
+
+Areas for Improvement:
+1. ${summaryJson.areas_for_improvement[0]}
+2. ${summaryJson.areas_for_improvement[1]}
+
+Standout Contributions:
+${summaryJson.standout_contributions.map((contribution, index) =>
+  `${index + 1}. ${contribution.url} (${contribution.contribution_type})
+   ${contribution.reason}`
+).join('\n')}
+`)
+        } catch (error) {
+          logger.error('Failed to parse summary JSON:', error)
+          throw error
+        }
       } else {
         throw new Error('Unexpected message type from agent')
       }
