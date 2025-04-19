@@ -2,7 +2,7 @@
 // This application analyzes GitHub contributions and provides feedback on their quality
 // and adherence to best practices.
 
-import { readFile } from 'fs/promises'
+import { readFile, writeFile } from 'fs/promises'
 import { searchAgent } from './agents/search.js'
 import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
 import { fetcherAgent } from './agents/fetcher.js'
@@ -96,7 +96,7 @@ async function main() {
   logger.debug('Initializing contribution analysis process')
 
   // Parse command line arguments
-  const { organization, user, startDate, endDate, roleDescription } = parseArgs()
+  const { organization, user, startDate, endDate, roleDescription, outputPath } = parseArgs()
 
   // Read role description file
   let roleDescriptionText: string
@@ -403,29 +403,12 @@ async function main() {
           }
 
           // Log the structured summary
-          logger.info(`
-# ${summaryJson.user}
-
-## Role Summary:
-${summaryJson.role_summary}
-
-## High-Level Performance Summary:
-${summaryJson.high_level_performance_summary}
-
-## Key Strengths:
-1. ${summaryJson.key_strengths[0]}
-2. ${summaryJson.key_strengths[1]}
-
-## Areas for Improvement:
-1. ${summaryJson.areas_for_improvement[0]}
-2. ${summaryJson.areas_for_improvement[1]}
-
-## Standout Contributions:
-${summaryJson.standout_contributions.map((contribution, index) =>
-  `${index + 1}. ${contribution.url} (${contribution.conversation_type})
-   ${contribution.reason}`
-).join('\n')}
-`)
+          const summaryOutput = JSON.stringify(summaryJson, null, 2)
+          if (outputPath) {
+            await writeFile(outputPath, summaryOutput)
+            logger.info(`Analysis saved to ${outputPath}`)
+          }
+          logger.info('\n' + summaryOutput)
         } catch (error) {
           logger.error('Failed to parse summary JSON:', error)
           throw error

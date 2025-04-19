@@ -11,7 +11,8 @@ const CliArgsSchema = z.object({
   user: z.string().min(1).describe('GitHub username to analyze'),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('Start date in YYYY-MM-DD format'),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('End date in YYYY-MM-DD format'),
-  roleDescription: z.string().min(1).describe('Path to a file containing the role description')
+  roleDescription: z.string().min(1).describe('Path to a file containing the role description'),
+  outputPath: z.string().optional().describe('Path where the analysis JSON will be saved')
 })
 
 // Type definition for command line arguments
@@ -21,30 +22,32 @@ export type CliArgs = z.infer<typeof CliArgsSchema>
 function showHelp() {
   logger.info('Peer Feedback Application - GitHub Contribution Analysis')
   logger.info('\nUsage:')
-  logger.info('  npm run analyze -- --organization <org> --user <user> --start-date <date> --end-date <date> --role-description <path>')
-  logger.info('  npm run analyze -o <org> -u <user> -s <date> -e <date> -r <path>')
+  logger.info('  npm run analyze -- --organization <org> --user <user> --start-date <date> --end-date <date> --role-description <path> [--output-path <path>]')
+  logger.info('  npm run analyze -o <org> -u <user> -s <date> -e <date> -r <path> [-p <path>]')
   logger.info('\nOptions:')
   logger.info('  --organization, -o     GitHub organization to search within')
   logger.info('  --user, -u            GitHub username to analyze')
   logger.info('  --start-date, -s      Start date in YYYY-MM-DD format')
   logger.info('  --end-date, -e        End date in YYYY-MM-DD format')
   logger.info('  --role-description, -r Path to a file containing the role description')
+  logger.info('  --output-path, -p     Optional path to save the analysis JSON (if not provided, analysis will only be printed to console)')
   logger.info('  --help, -h            Show this help message')
   logger.info('\nExample:')
-  logger.info('  npm run analyze -- --organization open-truss --user jonmagic --start-date 2022-01-01 --end-date 2024-01-01 --role-description ./role-description.md')
+  logger.info('  npm run analyze -- --organization open-truss --user jonmagic --start-date 2022-01-01 --end-date 2024-01-01 --role-description ./role-description.md --output-path ./analysis.json')
   process.exit(0)
 }
 
 // Parses command line arguments and returns validated configuration
 export function parseArgs(): CliArgs {
   const args = minimist(process.argv.slice(2), {
-    string: ['organization', 'user', 'start-date', 'end-date', 'role-description'],
+    string: ['organization', 'user', 'start-date', 'end-date', 'role-description', 'output-path'],
     alias: {
       o: 'organization',
       u: 'user',
       s: 'start-date',
       e: 'end-date',
       r: 'role-description',
+      p: 'output-path',
       h: 'help'
     },
     boolean: ['help']
@@ -72,7 +75,8 @@ export function parseArgs(): CliArgs {
       user: args.user,
       startDate: args['start-date'],
       endDate: args['end-date'],
-      roleDescription: args['role-description']
+      roleDescription: args['role-description'],
+      outputPath: args['output-path']
     })
 
     // Validate date order
