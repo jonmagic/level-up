@@ -248,7 +248,8 @@ async function main() {
           analysisData = {
             user,
             url: contribution.url,
-            contribution_type: contribution.type === 'pull' ? 'pull_request' : contribution.type as 'issue' | 'discussion',
+            conversation_type: contribution.type === 'pull' ? 'pull_request' :
+                             contribution.type === 'issues' ? 'issue' : 'discussion',
             role: parsedData.role,
             impact: parsedData.impact,
             technical_quality: parsedData.technical_quality,
@@ -326,7 +327,7 @@ ${summaryJson.high_level_performance_summary}
 
 ## Standout Contributions:
 ${summaryJson.standout_contributions.map((contribution, index) =>
-  `${index + 1}. ${contribution.url} (${contribution.contribution_type})
+  `${index + 1}. ${contribution.url} (${contribution.conversation_type})
    ${contribution.reason}`
 ).join('\n')}
 `)

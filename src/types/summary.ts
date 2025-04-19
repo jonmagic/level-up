@@ -1,10 +1,10 @@
 // Type definitions for the executive summary output
 
-export type ContributionType = 'issue' | 'pull_request' | 'discussion'
+export type ConversationType = 'issue' | 'pull_request' | 'discussion'
 
 export interface StandoutContribution {
   url: string
-  contribution_type: ContributionType
+  conversation_type: ConversationType
   reason: string
 }
 

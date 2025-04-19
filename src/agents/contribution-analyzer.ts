@@ -5,6 +5,9 @@
 import { createAgent } from '@inngest/agent-kit'
 import { defaultModel } from '../services/models.js'
 
+// Type definitions for the contribution analyzer
+export type ConversationType = 'issue' | 'pull_request' | 'discussion'
+
 // Creates and exports a specialized agent for analyzing GitHub contributions
 // The agent is configured with a detailed system prompt for comprehensive analysis
 export const contributionAnalyzerAgent = createAgent({
@@ -26,7 +29,7 @@ Your output must strictly follow this schema exactly:
 {
   "user": "<github handle of person receiving feedback>",
   "url": "<URL to the contribution>",
-  "contribution_type": "issue|pull_request|discussion",
+  "conversation_type": "issue|pull_request|discussion",
   "role": "author|reviewer|commenter|contributor",
 
   "impact": {

@@ -15,7 +15,7 @@ async function ensureCacheDir() {
 }
 
 // Analysis data type
-export type ContributionType = 'issue' | 'pull_request' | 'discussion'
+export type ConversationType = 'issue' | 'pull_request' | 'discussion'
 export type RoleType = 'author' | 'reviewer' | 'commenter' | 'contributor'
 export type ImportanceLevel = 'high' | 'medium' | 'low'
 export type QualityLevel = 'excellent' | 'good' | 'adequate' | 'needs_improvement' | 'n/a'
@@ -48,7 +48,7 @@ export interface AlignmentAnalysis {
 export interface AnalysisData {
   user: string
   url: string
-  contribution_type: ContributionType
+  conversation_type: ConversationType
   role: RoleType
   impact: ImpactAnalysis
   technical_quality: TechnicalQualityAnalysis

@@ -119,7 +119,7 @@ export const searchContributions = createTool({
     `
 
     // Construct the search query string
-    const searchQuery = `org:${organization} author:${author} created:${since}..${until}`
+    const searchQuery = `org:${organization} involves:${author} created:${since}..${until}`
     logger.debug('\nSearch Query:', searchQuery)
 
     // Function to fetch all pages of results for a given query

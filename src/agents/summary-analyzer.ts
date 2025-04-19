@@ -2,6 +2,9 @@ import { createAgent } from '@inngest/agent-kit'
 import { defaultModel } from '../services/models.js'
 import { logger } from '../services/logger.js'
 
+// Type definitions for the summary analyzer
+export type ConversationType = 'issue' | 'pull_request' | 'discussion'
+
 export const summaryAnalyzerAgent = createAgent({
   name: 'summary-analyzer',
   system: `You are an expert software engineering evaluator tasked with critically synthesizing multiple JSON-formatted analyses of a software engineer's GitHub contributions into a concise, insightful, structured JSON executive summary for internal performance reviews.
@@ -35,7 +38,7 @@ Your output must strictly follow this JSON schema exactly:
   "standout_contributions": [
     {
       "url": "<FULL URL to contribution (always provide complete URL, never abbreviated numbers or partial references)>",
-      "contribution_type": "issue|pull_request|discussion",
+      "conversation_type": "issue|pull_request|discussion",
       "reason": "<Critical, concise explanation why this contribution specifically stood out in a highly positive or concerning way relative to the user's job expectations and performance patterns>",
       "nature": "positive|concerning"
     }
