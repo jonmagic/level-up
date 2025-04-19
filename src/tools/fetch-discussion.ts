@@ -23,6 +23,9 @@ interface DiscussionResponse extends GitHubResponse {
   repository: {
     discussion: {
       title: string
+      author: {
+        login: string
+      }
       body: string
       url: string
       updatedAt: string
@@ -90,6 +93,9 @@ export const fetchDiscussion = createTool({
         repository(owner: $owner, name: $repo) {
           discussion(number: $number) {
             title
+            author {
+              login
+            }
             body
             url
             updatedAt
@@ -157,6 +163,7 @@ export const fetchDiscussion = createTool({
     const contribution: DiscussionContribution = {
       type: 'discussion',
       title: discussion.title,
+      author: discussion.author.login,
       body: discussion.body,
       url: discussion.url,
       updatedAt: discussion.updatedAt,

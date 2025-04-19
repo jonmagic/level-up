@@ -24,6 +24,9 @@ interface PullRequestResponse extends GitHubResponse {
   repository: {
     pullRequest: {
       title: string
+      author: {
+        login: string
+      }
       body: string
       url: string
       updatedAt: string
@@ -82,6 +85,9 @@ export const fetchPullRequest = createTool({
         repository(owner: $owner, name: $repo) {
           pullRequest(number: $number) {
             title
+            author {
+              login
+            }
             body
             url
             updatedAt
@@ -175,6 +181,7 @@ export const fetchPullRequest = createTool({
     const contribution: PullRequestContribution = {
       type: 'pull_request',
       title: pr.title,
+      author: pr.author.login,
       body: pr.body,
       url: pr.url,
       updatedAt: pr.updatedAt,

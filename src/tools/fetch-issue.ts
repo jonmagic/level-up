@@ -24,6 +24,9 @@ interface IssueResponse extends GitHubResponse {
   repository: {
     issue: {
       title: string
+      author: {
+        login: string
+      }
       body: string
       url: string
       updatedAt: string
@@ -72,6 +75,9 @@ export const fetchIssue = createTool({
         repository(owner: $owner, name: $repo) {
           issue(number: $number) {
             title
+            author {
+              login
+            }
             body
             url
             updatedAt
@@ -121,6 +127,7 @@ export const fetchIssue = createTool({
     const contribution: IssueContribution = {
       type: 'issue',
       title: issue.title,
+      author: issue.author.login,
       body: issue.body,
       url: issue.url,
       updatedAt: issue.updatedAt,

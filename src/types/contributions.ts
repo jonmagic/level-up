@@ -18,6 +18,8 @@ export interface CommentWithReplies extends BaseComment {
 export interface BaseContribution {
   // Title of the contribution
   title: string
+  // Author of the contribution
+  author: string
   // Main content/description of the contribution
   body: string
   // ISO timestamp of the last update
