@@ -40,24 +40,54 @@ interface GitHubSearchResponse extends GitHubResponse {
 // Interface for search contributions result
 // Defines the structure of the result returned by the tool
 export interface SearchContributionsResult {
-  issues: Array<{
-    title: string
-    url: string
-    created_at: string
-    updated_at: string
-  }>
-  pull_requests: Array<{
-    title: string
-    url: string
-    created_at: string
-    updated_at: string
-  }>
-  discussions: Array<{
-    title: string
-    url: string
-    created_at: string
-    updated_at: string
-  }>
+  authored: {
+    issues: Array<{
+      title: string
+      url: string
+      created_at: string
+      updated_at: string
+    }>
+    pull_requests: Array<{
+      title: string
+      url: string
+      created_at: string
+      updated_at: string
+    }>
+    discussions: Array<{
+      title: string
+      url: string
+      created_at: string
+      updated_at: string
+    }>
+  }
+  commented: {
+    issues: Array<{
+      title: string
+      url: string
+      created_at: string
+      updated_at: string
+    }>
+    pull_requests: Array<{
+      title: string
+      url: string
+      created_at: string
+      updated_at: string
+    }>
+    discussions: Array<{
+      title: string
+      url: string
+      created_at: string
+      updated_at: string
+    }>
+  }
+  reviewed: {
+    pull_requests: Array<{
+      title: string
+      url: string
+      created_at: string
+      updated_at: string
+    }>
+  }
   summary: string
 }
 
@@ -65,7 +95,7 @@ export interface SearchContributionsResult {
 // Handles searching for GitHub contributions using GraphQL queries
 export const searchContributions = createTool({
   name: 'search_contributions',
-  description: 'Search for GitHub issues, pull requests, and discussions created by a specific author within a date range',
+  description: 'Search for GitHub issues, pull requests, and discussions authored, commented on, or reviewed by a specific user within a date range',
   parameters: SearchContributionsSchema,
   handler: async ({ author, since, until, organization, limit }) => {
     // GraphQL query for searching issues and pull requests
@@ -119,11 +149,11 @@ export const searchContributions = createTool({
     `
 
     // Construct the search query string
-    const searchQuery = `org:${organization} involves:${author} created:${since}..${until}`
+    const searchQuery = `org:${organization} author:${author} created:${since}..${until}`
     logger.debug('\nSearch Query:', searchQuery)
 
     // Function to fetch all pages of results for a given query
-    async function fetchAllPages(query: string, type: 'ISSUE' | 'DISCUSSION') {
+    async function fetchAllPages(query: string, searchQuery: string) {
       const allNodes = []
       let hasNextPage = true
       let endCursor = null
@@ -132,10 +162,9 @@ export const searchContributions = createTool({
 
       while (hasNextPage && (!limit || totalFetched < limit)) {
         pageCount++
-        logger.debug(`\nFetching page ${pageCount} for ${type} query...`)
+        logger.debug(`\nFetching page ${pageCount}...`)
         logger.debug(`Current cursor: ${endCursor || 'initial'}`)
 
-        // Calculate how many items to fetch on this page
         const itemsToFetch = limit ? Math.min(100, limit - totalFetched) : 100
 
         const response: GitHubSearchResponse = await executeQuery<GitHubSearchResponse>(query, {
@@ -144,45 +173,41 @@ export const searchContributions = createTool({
           after: endCursor
         })
 
-        logger.debug('\nGitHub API Response:', JSON.stringify(response, null, 2))
-        logger.debug('\nSearch Response:', JSON.stringify(response.search, null, 2))
-
         const nodesCount = response.search.nodes.length
         allNodes.push(...response.search.nodes)
         totalFetched += nodesCount
         hasNextPage = response.search.pageInfo.hasNextPage
         endCursor = response.search.pageInfo.endCursor
 
-        logger.debug(`Fetched ${nodesCount} nodes on page ${pageCount}`)
-        logger.debug(`Total fetched: ${totalFetched}`)
-        logger.debug(`Has next page: ${hasNextPage}`)
-        logger.debug(`Next cursor: ${endCursor || 'none'}`)
-
-        // If we've reached the limit, stop fetching
         if (limit && totalFetched >= limit) {
-          logger.debug(`Reached limit of ${limit}, stopping pagination`)
           break
         }
       }
 
-      logger.debug(`\nCompleted fetching ${type} with ${pageCount} pages and ${allNodes.length} total nodes`)
       return allNodes
     }
 
-    // Execute both queries in parallel for better performance
-    const [issueNodes, discussionNodes] = await Promise.all([
-      fetchAllPages(issueQuery, 'ISSUE'),
-      fetchAllPages(discussionQuery, 'DISCUSSION')
+    // Fetch authored items
+    const authoredSearchQuery = `org:${organization} author:${author} created:${since}..${until}`
+    const [rawAuthoredIssues, rawAuthoredDiscussions] = await Promise.all([
+      fetchAllPages(issueQuery, authoredSearchQuery),
+      fetchAllPages(discussionQuery, authoredSearchQuery)
     ])
 
-    logger.debug('\nRaw GraphQL Responses:', JSON.stringify({
-      issues: issueNodes,
-      discussions: discussionNodes
-    }, null, 2))
+    // Fetch commented items
+    const commentedSearchQuery = `org:${organization} commenter:${author} created:${since}..${until}`
+    const [rawCommentedIssues, rawCommentedDiscussions] = await Promise.all([
+      fetchAllPages(issueQuery, commentedSearchQuery),
+      fetchAllPages(discussionQuery, commentedSearchQuery)
+    ])
+
+    // Fetch reviewed PRs
+    const reviewedSearchQuery = `org:${organization} reviewed-by:${author} created:${since}..${until}`
+    const rawReviewedIssues = await fetchAllPages(issueQuery, reviewedSearchQuery)
 
     // Process and format the results
-    const issues = issueNodes
-      .filter(node => node.__typename === 'Issue')
+    const processNodes = (nodes: any[], type: string) => nodes
+      .filter(node => node.__typename === type)
       .map(node => ({
         title: node.title,
         url: node.url,
@@ -190,28 +215,29 @@ export const searchContributions = createTool({
         updated_at: node.updatedAt
       }))
 
-    const pull_requests = issueNodes
-      .filter(node => node.__typename === 'PullRequest')
-      .map(node => ({
-        title: node.title,
-        url: node.url,
-        created_at: node.createdAt,
-        updated_at: node.updatedAt
-      }))
+    const authoredIssues = processNodes(rawAuthoredIssues, 'Issue')
+    const authoredPullRequests = processNodes(rawAuthoredIssues, 'PullRequest')
+    const authoredDiscussions = processNodes(rawAuthoredDiscussions, 'Discussion')
+    const commentedIssues = processNodes(rawCommentedIssues, 'Issue')
+    const commentedPullRequests = processNodes(rawCommentedIssues, 'PullRequest')
+    const commentedDiscussions = processNodes(rawCommentedDiscussions, 'Discussion')
+    const reviewedPullRequests = processNodes(rawReviewedIssues, 'PullRequest')
 
-    const discussions = discussionNodes
-      .map(node => ({
-        title: node.title,
-        url: node.url,
-        created_at: node.createdAt,
-        updated_at: node.updatedAt
-      }))
-
-    const result = {
-      issues,
-      pull_requests,
-      discussions,
-      summary: `Found ${issues.length} issues, ${pull_requests.length} pull requests, and ${discussions.length} discussions created by ${author} between ${since} and ${until}.`
+    const result: SearchContributionsResult = {
+      authored: {
+        issues: authoredIssues,
+        pull_requests: authoredPullRequests,
+        discussions: authoredDiscussions
+      },
+      commented: {
+        issues: commentedIssues,
+        pull_requests: commentedPullRequests,
+        discussions: commentedDiscussions
+      },
+      reviewed: {
+        pull_requests: reviewedPullRequests
+      },
+      summary: `Found ${authoredIssues.length} authored issues, ${authoredPullRequests.length} authored PRs, ${authoredDiscussions.length} authored discussions, ${commentedIssues.length} commented issues, ${commentedPullRequests.length} commented PRs, ${commentedDiscussions.length} commented discussions, and ${reviewedPullRequests.length} reviewed PRs by ${author} between ${since} and ${until}.`
     }
 
     logger.debug('\nSearch Contributions Tool - Final Result:', JSON.stringify(result, null, 2))

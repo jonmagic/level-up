@@ -97,7 +97,8 @@ async function main() {
 
         // Combine all contribution types into a single array with type information
         contributions = [
-          ...data.issues.map(issue => {
+          // Authored contributions
+          ...data.authored.issues.map(issue => {
             const { owner, name, number } = extractRepoInfo(issue.url)
             return {
               title: issue.title,
@@ -108,7 +109,7 @@ async function main() {
               updatedAt: issue.updated_at
             }
           }),
-          ...data.pull_requests.map(pr => {
+          ...data.authored.pull_requests.map(pr => {
             const { owner, name, number } = extractRepoInfo(pr.url)
             return {
               title: pr.title,
@@ -119,7 +120,7 @@ async function main() {
               updatedAt: pr.updated_at
             }
           }),
-          ...data.discussions.map(discussion => {
+          ...data.authored.discussions.map(discussion => {
             const { owner, name, number } = extractRepoInfo(discussion.url)
             return {
               title: discussion.title,
@@ -128,6 +129,52 @@ async function main() {
               number,
               repository: { owner, name },
               updatedAt: discussion.updated_at
+            }
+          }),
+          // Commented contributions
+          ...data.commented.issues.map(issue => {
+            const { owner, name, number } = extractRepoInfo(issue.url)
+            return {
+              title: issue.title,
+              url: issue.url,
+              type: 'issues' as const,
+              number,
+              repository: { owner, name },
+              updatedAt: issue.updated_at
+            }
+          }),
+          ...data.commented.pull_requests.map(pr => {
+            const { owner, name, number } = extractRepoInfo(pr.url)
+            return {
+              title: pr.title,
+              url: pr.url,
+              type: 'pull' as const,
+              number,
+              repository: { owner, name },
+              updatedAt: pr.updated_at
+            }
+          }),
+          ...data.commented.discussions.map(discussion => {
+            const { owner, name, number } = extractRepoInfo(discussion.url)
+            return {
+              title: discussion.title,
+              url: discussion.url,
+              type: 'discussions' as const,
+              number,
+              repository: { owner, name },
+              updatedAt: discussion.updated_at
+            }
+          }),
+          // Reviewed PRs
+          ...data.reviewed.pull_requests.map(pr => {
+            const { owner, name, number } = extractRepoInfo(pr.url)
+            return {
+              title: pr.title,
+              url: pr.url,
+              type: 'pull' as const,
+              number,
+              repository: { owner, name },
+              updatedAt: pr.updated_at
             }
           })
         ]
