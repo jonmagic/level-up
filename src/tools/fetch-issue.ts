@@ -3,11 +3,12 @@
 
 import { createTool } from '@inngest/agent-kit'
 import { z } from 'zod'
-import { executeQuery, GitHubResponse } from '../services/github.js'
+import { executeQuery, GitHubResponse, octokit } from '../services/github.js'
 import { IssueContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
-import { ContributionCacheService } from '../services/contribution-cache.js'
+import { ConversationCacheService } from '../services/conversation-cache.js'
 import { AnalysisCacheService } from '../services/analysis-cache.js'
+import type { RestEndpointMethodTypes } from '@octokit/rest'
 
 // Schema for validating fetch issue parameters
 const FetchIssueSchema = z.object({
@@ -53,7 +54,7 @@ export const fetchIssue = createTool({
     const { owner, repo, number, updatedAt } = params
 
     // Check cache first
-    const cache = ContributionCacheService.getInstance()
+    const cache = ConversationCacheService.getInstance()
     const cached = await cache.get<IssueContribution>(owner, repo, 'issue', number, updatedAt)
     if (cached) {
       logger.debug('Cache hit for issue:', { owner, repo, number, updatedAt })

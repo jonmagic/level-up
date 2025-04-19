@@ -4,7 +4,7 @@ import { logger } from './logger.js'
 import { ContributionDetails } from '../types/contributions.js'
 
 // Cache configuration
-const CACHE_DIR = '.cache/contributions'
+const CACHE_DIR = '.cache/conversations'
 
 // Ensure cache directory exists
 async function ensureCacheDir() {
@@ -27,18 +27,18 @@ interface CacheEntry<T> {
   cachedAt: string
 }
 
-export class ContributionCacheService {
-  private static instance: ContributionCacheService
+export class ConversationCacheService {
+  private static instance: ConversationCacheService
 
   private constructor() {
     ensureCacheDir()
   }
 
-  static getInstance(): ContributionCacheService {
-    if (!ContributionCacheService.instance) {
-      ContributionCacheService.instance = new ContributionCacheService()
+  static getInstance(): ConversationCacheService {
+    if (!ConversationCacheService.instance) {
+      ConversationCacheService.instance = new ConversationCacheService()
     }
-    return ContributionCacheService.instance
+    return ConversationCacheService.instance
   }
 
   async get<T extends ContributionDetails>(

@@ -6,10 +6,9 @@ import { z } from 'zod'
 import { executeQuery, GitHubResponse } from '../services/github.js'
 import { PullRequestContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
-import { ContributionCacheService } from '../services/contribution-cache.js'
 import { AnalysisCacheService } from '../services/analysis-cache.js'
 import { octokit } from '../services/github.js'
-import type { RestEndpointMethodTypes } from '@octokit/rest'
+import { ConversationCacheService } from '../services/conversation-cache.js'
 
 // Schema for validating fetch pull request parameters
 const FetchPullRequestSchema = z.object({
@@ -65,7 +64,7 @@ export const fetchPullRequest = createTool({
     const { owner, repo, number, updatedAt } = params
 
     // Check cache first
-    const cache = ContributionCacheService.getInstance()
+    const cache = ConversationCacheService.getInstance()
     const cached = await cache.get<PullRequestContribution>(owner, repo, 'pull', number, updatedAt)
     if (cached) {
       logger.debug('Cache hit for pull request:', { owner, repo, number, updatedAt })

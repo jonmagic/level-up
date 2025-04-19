@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { executeQuery, GitHubResponse } from '../services/github.js'
 import { DiscussionContribution } from '../types/contributions.js'
 import { logger } from '../services/logger.js'
-import { ContributionCacheService } from '../services/contribution-cache.js'
+import { ConversationCacheService } from '../services/conversation-cache.js'
 import { AnalysisCacheService } from '../services/analysis-cache.js'
 
 // Schema for validating fetch discussion parameters
@@ -72,7 +72,7 @@ export const fetchDiscussion = createTool({
     const { owner, repo, number, updatedAt } = params
 
     // Check cache first
-    const cache = ContributionCacheService.getInstance()
+    const cache = ConversationCacheService.getInstance()
     const cached = await cache.get<DiscussionContribution>(owner, repo, 'discussion', number, updatedAt)
     if (cached) {
       logger.debug('Cache hit for discussion:', { owner, repo, number, updatedAt })
