@@ -21,6 +21,18 @@ type RepoInfo = {
   number: number
 }
 
+type Contribution = {
+  title: string
+  url: string
+  type: 'issue' | 'pull_request' | 'discussion'
+  number: number
+  repository: {
+    owner: string
+    name: string
+  }
+  updatedAt: string
+}
+
 type DetailedContribution = {
   data: PullRequestContribution | IssueContribution | DiscussionContribution
 }
@@ -37,6 +49,41 @@ export function extractRepoInfo(url: string): RepoInfo {
     name: match[2],
     number: parseInt(match[4], 10)
   }
+}
+
+// Helper function to count roles from analyses
+function countRoles(analyses: AnalysisData[]) {
+  const roleCounts = {
+    author: {
+      issues: 0,
+      pull_requests: 0,
+      discussions: 0
+    },
+    reviewer: {
+      issues: 0,
+      pull_requests: 0,
+      discussions: 0
+    },
+    commenter: {
+      issues: 0,
+      pull_requests: 0,
+      discussions: 0
+    },
+    contributor: {
+      issues: 0,
+      pull_requests: 0,
+      discussions: 0
+    }
+  }
+
+  for (const analysis of analyses) {
+    const conversationType = analysis.conversation_type === 'issue' ? 'issues' :
+                           analysis.conversation_type === 'pull_request' ? 'pull_requests' :
+                           'discussions'
+    roleCounts[analysis.role][conversationType]++
+  }
+
+  return roleCounts
 }
 
 // Main application function that orchestrates the contribution analysis process
@@ -89,7 +136,7 @@ async function main() {
   }
 
   // Extract contributions from search result
-  let contributions: Array<{ title: string; url: string; type: 'issues' | 'pull' | 'discussions'; number: number; repository: { owner: string; name: string }; updatedAt: string }> = []
+  let contributions: Contribution[] = []
   for (const toolCall of searchResult.toolCalls) {
     if (toolCall.role === 'tool_result' && toolCall.content) {
       try {
@@ -103,7 +150,7 @@ async function main() {
             return {
               title: issue.title,
               url: issue.url,
-              type: 'issues' as const,
+              type: 'issue' as const,
               number,
               repository: { owner, name },
               updatedAt: issue.updated_at
@@ -114,7 +161,7 @@ async function main() {
             return {
               title: pr.title,
               url: pr.url,
-              type: 'pull' as const,
+              type: 'pull_request' as const,
               number,
               repository: { owner, name },
               updatedAt: pr.updated_at
@@ -125,7 +172,7 @@ async function main() {
             return {
               title: discussion.title,
               url: discussion.url,
-              type: 'discussions' as const,
+              type: 'discussion' as const,
               number,
               repository: { owner, name },
               updatedAt: discussion.updated_at
@@ -137,7 +184,7 @@ async function main() {
             return {
               title: issue.title,
               url: issue.url,
-              type: 'issues' as const,
+              type: 'issue' as const,
               number,
               repository: { owner, name },
               updatedAt: issue.updated_at
@@ -148,7 +195,7 @@ async function main() {
             return {
               title: pr.title,
               url: pr.url,
-              type: 'pull' as const,
+              type: 'pull_request' as const,
               number,
               repository: { owner, name },
               updatedAt: pr.updated_at
@@ -159,7 +206,7 @@ async function main() {
             return {
               title: discussion.title,
               url: discussion.url,
-              type: 'discussions' as const,
+              type: 'discussion' as const,
               number,
               repository: { owner, name },
               updatedAt: discussion.updated_at
@@ -171,7 +218,7 @@ async function main() {
             return {
               title: pr.title,
               url: pr.url,
-              type: 'pull' as const,
+              type: 'pull_request' as const,
               number,
               repository: { owner, name },
               updatedAt: pr.updated_at
@@ -260,7 +307,7 @@ async function main() {
       try {
         // Analyze the contribution using our detailed analyzer
         const cachePath = analysisCache.getCachePath(user, contribution.repository.owner, contribution.repository.name, contribution.type, contribution.number)
-        logger.info(`Analyzing contribution from ${cachePath}`)
+        logger.info(`Generating contribution analysis ${cachePath}`)
 
         // Analyze the specific contribution
         const analysisInput = {
@@ -295,8 +342,7 @@ async function main() {
           analysisData = {
             user,
             url: contribution.url,
-            conversation_type: contribution.type === 'pull' ? 'pull_request' :
-                             contribution.type === 'issues' ? 'issue' : 'discussion',
+            conversation_type: contribution.type,
             role: parsedData.role,
             impact: parsedData.impact,
             technical_quality: parsedData.technical_quality,
@@ -321,7 +367,7 @@ async function main() {
 
     if (analysisData) {
       // Only add pull requests that are merged or closed
-      if (detailedContribution.data.type === 'pull') {
+      if (detailedContribution.data.type === 'pull_request') {
         if (detailedContribution.data.state === 'merged' || detailedContribution.data.state === 'closed') {
           analyses.push(analysisData)
         }
@@ -335,10 +381,12 @@ async function main() {
   if (analyses.length > 0) {
     logger.info(`Generating summary feedback from ${analyses.length} contributions...`)
     try {
+      const roleMetrics = countRoles(analyses)
       const summaryInput = {
         user,
         analyses,
-        roleDescription: roleDescriptionText
+        roleDescription: roleDescriptionText,
+        roleMetrics
       }
       const result = await summaryAnalyzerAgent.run(JSON.stringify(summaryInput, null, 2))
       const lastMessage = result.output[result.output.length - 1]

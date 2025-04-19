@@ -173,7 +173,7 @@ export const fetchPullRequest = createTool({
     }))
 
     const contribution: PullRequestContribution = {
-      type: 'pull',
+      type: 'pull_request',
       title: pr.title,
       body: pr.body,
       url: pr.url,

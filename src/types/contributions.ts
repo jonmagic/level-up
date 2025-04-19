@@ -73,7 +73,7 @@ export interface Commit {
 // Interface for a GitHub pull request contribution
 export interface PullRequestContribution extends BaseContribution {
   // Type discriminator
-  type: 'pull'
+  type: 'pull_request'
   // Current state of the pull request
   state: 'open' | 'closed' | 'merged'
   // Array of reviews on the pull request

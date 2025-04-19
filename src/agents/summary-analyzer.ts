@@ -14,7 +14,29 @@ You will receive an object structured exactly like this:
 {
   "user": "<github handle>",
   "analyses": [ <array of per-contribution JSON analyses> ],
-  "roleDescription": "<brief summary of user's current role, responsibilities, and job expectations>"
+  "roleDescription": "<brief summary of user's current role, responsibilities, and job expectations>",
+  "roleMetrics": {
+    "author": {
+      "issues": <number>,
+      "pull_requests": <number>,
+      "discussions": <number>
+    },
+    "reviewer": {
+      "issues": <number>,
+      "pull_requests": <number>,
+      "discussions": <number>
+    },
+    "commenter": {
+      "issues": <number>,
+      "pull_requests": <number>,
+      "discussions": <number>
+    },
+    "contributor": {
+      "issues": <number>,
+      "pull_requests": <number>,
+      "discussions": <number>
+    }
+  }
 }
 
 Your output must strictly follow this JSON schema exactly:
@@ -23,7 +45,9 @@ Your output must strictly follow this JSON schema exactly:
   "user": "<github handle>",
   "role_summary": "<Critical, concise paragraph summarizing user's role, responsibilities, and key expectations explicitly from the provided role description.>",
 
-  "high_level_performance_summary": "<Critical, concise paragraph clearly summarizing overall patterns observed across all provided contributions. Explicitly discuss the user's general impact, technical skill demonstrated, collaboration style, and alignment with role expectations. Include both strengths and areas needing improvement.>",
+  "contribution_metrics_summary": "<A concise, human-readable summary of the contribution metrics, highlighting key patterns and trends. For example: 'Maintained consistent monthly contributions averaging X per month, with peak activity in [month] (Y contributions) and lowest in [month] (Z contributions). Primary focus on [type] contributions (A%), followed by [type] (B%).'>",
+
+  "high_level_performance_summary": "<Critical, concise paragraph clearly summarizing overall patterns observed across all provided contributions, explicitly including assessment of the user's contribution volume and velocity over the past six months. Explicitly discuss the user's general impact, technical skill demonstrated, collaboration style, consistency of contributions, and alignment with role expectations. Include both strengths and areas needing improvement.>",
 
   "key_strengths": [
     "<Brief critical summary explicitly highlighting strength #1 with specific examples from contributions>",
