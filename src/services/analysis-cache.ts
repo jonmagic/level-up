@@ -48,6 +48,7 @@ export interface AlignmentAnalysis {
 export interface AnalysisData {
   user: string
   url: string
+  referenced_urls: string[]
   conversation_type: ConversationType
   role: RoleType
   impact: ImpactAnalysis

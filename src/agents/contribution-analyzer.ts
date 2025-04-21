@@ -36,8 +36,9 @@ Your output must strictly follow this schema:
 {
   "user": "<github handle of person receiving feedback>",
   "url": "<URL to the contribution>",
+  "referenced_urls": ["<array of all URLs referenced in the conversation>"],
   "conversation_type": "issue|pull_request|discussion",
-  "role": "author|reviewer|commenter|contributor",
+  "role": "author|reviewer|contributor|commenter",
 
   "impact": {
     "summary": "<Critical 1-3 sentence summary describing the actual measured impact of this contribution on the project, team, or broader community. Be specific, concrete, and balanced.>",
@@ -121,7 +122,8 @@ LOW IMPACT:
 - Do not include markdown formatting or triple backticks in your output.
 - Provide balanced, concrete, and explicitly critical qualitative analyses in fields marked as "analysis" or "summary."
 - If "technical_quality" isn't applicable, set "applicable": false, "analysis": "n/a", and all enum fields to "n/a".
-- Explicitly base evaluations on the provided role description, the full content of the contribution, and real observed behaviors.`,
+- Explicitly base evaluations on the provided role description, the full content of the contribution, and real observed behaviors.
+- Collect ALL referenced urls from other GitHub issues, PRs, or discussions but ignore any urls that are not GitHub urls.`,
   // AI model to use for processing requests
   model: defaultModel,
   // No additional tools needed as this agent focuses on analysis

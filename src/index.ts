@@ -14,6 +14,7 @@ import { parseArgs } from './cli.js'
 import { type ExecutiveSummary } from './types/summary.js'
 import { type PullRequestContribution, type IssueContribution, type DiscussionContribution } from './types/contributions.js'
 import fs from 'fs/promises'
+import { ConversationCacheService } from './services/conversation-cache.js'
 
 // Type definitions
 type RepoInfo = {
@@ -36,6 +37,20 @@ type Contribution = {
 
 type DetailedContribution = {
   data: PullRequestContribution | IssueContribution | DiscussionContribution
+}
+
+// Turn contribution type into key part for cache
+function contributionTypeToCacheType(type: Contribution['type']): 'issues' | 'pull' | 'discussions' {
+  switch (type) {
+    case 'issue':
+      return 'issues'
+    case 'pull_request':
+      return 'pull'
+    case 'discussion':
+      return 'discussions'
+    default:
+      throw new Error(`Invalid contribution type: ${type}`)
+  }
 }
 
 // Helper function to extract repository and number from GitHub URL
@@ -188,31 +203,24 @@ async function main() {
     logger.debug(`Repository: ${contribution.repository.owner}/${contribution.repository.name}`)
     logger.debug(`Number: ${contribution.number}`)
 
-    // Check analysis cache first
-    let analysisData: AnalysisData | null = null
+    // Step 1: Check conversation cache
     let detailedContribution: DetailedContribution | undefined
-    const cachePath = analysisCache.getCachePath(user, contribution.repository.owner, contribution.repository.name, contribution.type, contribution.number)
+    const conversationCache = ConversationCacheService.getInstance()
+    const cachedConversation = await conversationCache.get<DetailedContribution['data']>(
+      contribution.repository.owner,
+      contribution.repository.name,
+      contributionTypeToCacheType(contribution.type),
+      contribution.number,
+      contribution.updatedAt
+    )
 
-    try {
-      // Try to read the cache file directly to check the updatedAt timestamp
-      const cacheData = await fs.readFile(cachePath, 'utf-8')
-      const cacheEntry = JSON.parse(cacheData) as CacheEntry
-
-      // Only use cached data if it's not older than the conversation's last update
-      if (new Date(cacheEntry.updatedAt) >= new Date(contribution.updatedAt)) {
-        logger.debug('Using cached analysis (up to date):')
-        logger.debug('----------------')
-        logger.debug('\n' + JSON.stringify(cacheEntry.data, null, 2))
-        analysisData = cacheEntry.data
-      }
-    } catch (error) {
-      // Cache miss or error - we'll proceed with fetching
-    }
-
-    if (!analysisData) {
+    if (cachedConversation) {
+      logger.debug('Using cached conversation data')
+      detailedContribution = { data: cachedConversation.data }
+    } else {
+      // Fetch fresh conversation data if cache miss or outdated
       let fetcherResult
       try {
-        // Use the fetcher agent to get detailed contribution data
         const fetchPrompt = `Fetch the contribution at ${contribution.url} with updatedAt ${contribution.updatedAt}`
         logger.info(fetchPrompt)
         fetcherResult = await fetcherAgent.run(fetchPrompt)
@@ -234,11 +242,35 @@ async function main() {
       }
 
       if (!detailedContribution) {
-        logger.error(`Failed to extract details for ${contribution.type} ${contribution.number}`)
+        logger.error(`Failed to extract details for ${contribution.url}`)
         logger.error('Tool calls:', JSON.stringify(fetcherResult.toolCalls, null, 2))
         continue
       }
+    }
 
+    // Step 2: Check analysis cache
+    let analysisData: AnalysisData | null = null
+    const analysisCache = AnalysisCacheService.getInstance()
+    const cachePath = analysisCache.getCachePath(
+      user,
+      contribution.repository.owner,
+      contribution.repository.name,
+      contributionTypeToCacheType(contribution.type),
+      contribution.number
+    )
+
+    try {
+      const cacheData = await fs.readFile(cachePath, 'utf-8')
+      const cacheEntry = JSON.parse(cacheData) as CacheEntry
+      logger.debug('Using cached analysis:')
+      logger.debug('----------------')
+      logger.debug('\n' + JSON.stringify(cacheEntry.data, null, 2))
+      analysisData = cacheEntry.data
+    } catch (error) {
+      // Cache miss - we'll proceed with analysis
+    }
+
+    if (!analysisData) {
       let analysis
       try {
         // Analyze the contribution using our detailed analyzer
@@ -277,6 +309,7 @@ async function main() {
           analysisData = {
             user,
             url: contribution.url,
+            referenced_urls: parsedData.referenced_urls || [],
             conversation_type: contribution.type,
             role: parsedData.role,
             impact: parsedData.impact,
@@ -289,7 +322,7 @@ async function main() {
           await analysisCache.set(
             contribution.repository.owner,
             contribution.repository.name,
-            contribution.type,
+            contributionTypeToCacheType(contribution.type),
             contribution.number,
             analysisData
           )

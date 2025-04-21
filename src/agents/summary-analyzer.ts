@@ -13,7 +13,19 @@ You will receive an object structured exactly like this:
 
 {
   "user": "<github handle>",
-  "analyses": [ <array of per-contribution JSON analyses> ],
+  "analyses": [ <array of per-contribution JSON analyses, each containing:
+    {
+      "user": "<github handle>",
+      "url": "<URL to the contribution>",
+      "referenced_urls": ["<array of all URLs referenced in the conversation>"],
+      "conversation_type": "issue|pull_request|discussion",
+      "role": "author|reviewer|contributor|commenter",
+      "impact": { ... },
+      "technical_quality": { ... },
+      "collaboration": { ... },
+      "alignment_with_goals": { ... }
+    }
+  > ],
   "role_description": "<brief summary of user's current role, responsibilities, and job expectations>",
   "contribution_metrics": {
     "author": {

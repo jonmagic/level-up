@@ -17,14 +17,7 @@ async function ensureCacheDir() {
 
 // Get cache file path for a contribution
 function getCachePath(owner: string, repo: string, type: string, number: number): string {
-  // Map contribution types to their correct folder names
-  const folderMap: Record<string, string> = {
-    'issue': 'issues',
-    'pull_request': 'pull',
-    'discussion': 'discussions'
-  }
-  const folderName = folderMap[type] || type
-  return path.join(CACHE_DIR, owner, repo, folderName, `${number}.json`)
+  return path.join(CACHE_DIR, owner, repo, type, `${number}.json`)
 }
 
 // Cache entry type
