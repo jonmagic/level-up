@@ -169,16 +169,24 @@ export const searchContributions = createTool({
     const rawReviewedIssues = await fetchAllPages(issueQuery, reviewedSearchQuery)
 
     // Process and format the results
-    const processNodes = (nodes: any[], type: string, role: 'author' | 'reviewer' | 'contributor' | 'commenter') => nodes
-      .filter(node => node.__typename === type)
-      .map(node => ({
-        title: node.title,
-        url: node.url,
-        created_at: node.createdAt,
-        updated_at: node.updatedAt,
-        type: type.toLowerCase() === 'pullrequest' ? 'pull_request' : type.toLowerCase() as 'issue' | 'pull_request' | 'discussion',
-        role
-      }))
+    const processNodes = (nodes: any[], type: string, role: 'author' | 'reviewer' | 'contributor' | 'commenter') => {
+      const typeMap = {
+        Issue: 'issue' as const,
+        PullRequest: 'pull_request' as const,
+        Discussion: 'discussion' as const
+      }
+
+      return nodes
+        .filter(node => node.__typename === type)
+        .map(node => ({
+          title: node.title,
+          url: node.url,
+          created_at: node.createdAt,
+          updated_at: node.updatedAt,
+          type: typeMap[type as keyof typeof typeMap],
+          role
+        }))
+    }
 
     // Create arrays of conversations with their roles
     const authoredIssues = processNodes(rawAuthoredIssues, 'Issue', 'author')

@@ -30,6 +30,7 @@ interface PullRequestResponse extends GitHubResponse {
       body: string
       url: string
       updatedAt: string
+      createdAt: string
       state: string
       labels: {
         nodes: Array<{
@@ -91,6 +92,7 @@ export const fetchPullRequest = createTool({
             body
             url
             updatedAt
+            createdAt
             state
             comments(first: 100) {
               nodes {
@@ -185,6 +187,7 @@ export const fetchPullRequest = createTool({
       body: pr.body,
       url: pr.url,
       updatedAt: pr.updatedAt,
+      createdAt: pr.createdAt,
       state: pr.state.toLowerCase() as 'open' | 'closed' | 'merged',
       comments: pr.comments.nodes.map((node: { body: string; author: { login: string } | null; createdAt: string }) => ({
         body: node.body,

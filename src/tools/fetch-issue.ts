@@ -30,6 +30,7 @@ interface IssueResponse extends GitHubResponse {
       body: string
       url: string
       updatedAt: string
+      createdAt: string
       state: string
       labels: {
         nodes: Array<{
@@ -58,7 +59,7 @@ export const fetchIssue = createTool({
 
     // Check cache first
     const cache = ConversationCacheService.getInstance()
-    const cached = await cache.get<IssueContribution>(owner, repo, 'issue', number, updatedAt)
+    const cached = await cache.get<IssueContribution>(owner, repo, 'issues', number, updatedAt)
     if (cached) {
       logger.debug('Cache hit for issue:', { owner, repo, number, updatedAt })
       return cached.data
@@ -81,6 +82,7 @@ export const fetchIssue = createTool({
             body
             url
             updatedAt
+            createdAt
             state
             labels(first: 100) {
               nodes {
@@ -131,6 +133,7 @@ export const fetchIssue = createTool({
       body: issue.body,
       url: issue.url,
       updatedAt: issue.updatedAt,
+      createdAt: issue.createdAt,
       state: issue.state.toLowerCase() as 'open' | 'closed',
       labels: issue.labels.nodes.map((node: { name: string }) => node.name),
       comments: issue.comments.nodes.map((node: { body: string; author: { login: string } | null; createdAt: string }) => ({

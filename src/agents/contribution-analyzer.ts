@@ -36,6 +36,8 @@ Your output must strictly follow this schema:
 {
   "user": "<github handle of person receiving feedback>",
   "url": "<URL to the contribution>",
+  "created_at": "<ISO 8601 timestamp of when the contribution was created>",
+  "updated_at": "<ISO 8601 timestamp of when the contribution was last updated>",
   "referenced_urls": ["<array of all URLs referenced in the conversation>"],
   "conversation_type": "issue|pull_request|discussion",
   "role": "author|reviewer|contributor|commenter",

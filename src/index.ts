@@ -33,6 +33,7 @@ type Contribution = {
     name: string
   }
   updatedAt: string
+  createdAt: string
 }
 
 type DetailedContribution = {
@@ -167,7 +168,8 @@ async function main() {
             type: conversation.type,
             number,
             repository: { owner, name },
-            updatedAt: conversation.updated_at
+            updatedAt: conversation.updated_at,
+            createdAt: conversation.created_at
           }
         })
 
@@ -309,6 +311,8 @@ async function main() {
           analysisData = {
             user,
             url: contribution.url,
+            created_at: contribution.createdAt,
+            updated_at: contribution.updatedAt,
             referenced_urls: parsedData.referenced_urls || [],
             conversation_type: contribution.type,
             role: parsedData.role,

@@ -29,6 +29,7 @@ interface DiscussionResponse extends GitHubResponse {
       body: string
       url: string
       updatedAt: string
+      createdAt: string
       category: {
         name: string
       }
@@ -76,7 +77,7 @@ export const fetchDiscussion = createTool({
 
     // Check cache first
     const cache = ConversationCacheService.getInstance()
-    const cached = await cache.get<DiscussionContribution>(owner, repo, 'discussion', number, updatedAt)
+    const cached = await cache.get<DiscussionContribution>(owner, repo, 'discussions', number, updatedAt)
     if (cached) {
       logger.debug('Cache hit for discussion:', { owner, repo, number, updatedAt })
       return cached.data
@@ -85,7 +86,7 @@ export const fetchDiscussion = createTool({
 
     // Clear analysis cache since we're fetching fresh data
     const analysisCache = AnalysisCacheService.getInstance()
-    await analysisCache.clear(owner, repo, 'discussion')
+    await analysisCache.clear(owner, repo, 'discussions')
     logger.debug('Cleared analysis cache for discussion:', { owner, repo, number })
 
     const query = `
@@ -99,6 +100,7 @@ export const fetchDiscussion = createTool({
             body
             url
             updatedAt
+            createdAt
             category {
               name
             }
@@ -167,6 +169,7 @@ export const fetchDiscussion = createTool({
       body: discussion.body,
       url: discussion.url,
       updatedAt: discussion.updatedAt,
+      createdAt: discussion.createdAt,
       category: discussion.category.name,
       isAnswered: discussion.isAnswered,
       answer: discussion.answer ? {
@@ -203,7 +206,7 @@ export const fetchDiscussion = createTool({
     }
 
     // Cache the result
-    await cache.set(owner, repo, 'discussion', number, contribution)
+    await cache.set(owner, repo, 'discussions', number, contribution)
     logger.debug('Cached discussion data:', { owner, repo, number, updatedAt })
 
     return contribution

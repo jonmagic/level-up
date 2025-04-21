@@ -48,6 +48,8 @@ export interface AlignmentAnalysis {
 export interface AnalysisData {
   user: string
   url: string
+  created_at: string
+  updated_at: string
   referenced_urls: string[]
   conversation_type: ConversationType
   role: RoleType

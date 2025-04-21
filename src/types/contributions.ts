@@ -24,6 +24,8 @@ export interface BaseContribution {
   body: string
   // ISO timestamp of the last update
   updatedAt: string
+  // ISO timestamp of when the contribution was created
+  createdAt: string
   // URL to view the contribution on GitHub
   url: string
   // Array of comments on the contribution
