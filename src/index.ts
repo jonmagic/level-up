@@ -260,16 +260,20 @@ async function main() {
       contributionTypeToCacheType(contribution.type),
       contribution.number
     )
+    logger.debug(`Checking cache at ${cachePath}`)
+    analysisData = await analysisCache.get(
+      contribution.repository.owner,
+      contribution.repository.name,
+      contributionTypeToCacheType(contribution.type),
+      contribution.number
+    )
 
-    try {
-      const cacheData = await fs.readFile(cachePath, 'utf-8')
-      const cacheEntry = JSON.parse(cacheData) as CacheEntry
+    if (analysisData) {
       logger.debug('Using cached analysis:')
       logger.debug('----------------')
-      logger.debug('\n' + JSON.stringify(cacheEntry.data, null, 2))
-      analysisData = cacheEntry.data
-    } catch (error) {
-      // Cache miss - we'll proceed with analysis
+      logger.debug('\n' + JSON.stringify(analysisData, null, 2))
+    } else {
+      logger.debug('No cached analysis found, will generate new analysis')
     }
 
     if (!analysisData) {
