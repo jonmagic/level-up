@@ -18,7 +18,11 @@ pnpm install
 Run the analyzer using the provided script:
 
 ```bash
-./script/analyze --organization open-truss --user jonmagic --start-date 2024-03-01 --end-date 2024-03-31
+./script/analyze --organization open-truss \
+  --user jonmagic \
+  --start-date 2024-03-01 \
+  --end-date 2024-03-31 \
+  --role-description /path/to/role-description.md
 ```
 
 ### Command Line Options
@@ -27,16 +31,19 @@ Run the analyzer using the provided script:
 - `--user, -u`: GitHub username to analyze
 - `--start-date, -s`: Start date in YYYY-MM-DD format
 - `--end-date, -e`: End date in YYYY-MM-DD format
+- `--role-description, -r`: Path to a file containing the role description
+- `--output-path, -p`: Optional path to save the analysis JSON (if not provided, analysis will only be printed to console)
 - `--help, -h`: Show help message
 
-### Example
+### Examples
 
 ```bash
 # Using short flags
-./script/analyze -o open-truss -u jonmagic -s 2022-01-01 -e 2024-01-01
+./script/analyze -o open-truss -u jonmagic -s 2024-03-01 -e 2024-03-31 -r role.md
 
-# Using long flags
-./script/analyze --organization open-truss --user jonmagic --start-date 2022-01-01 --end-date 2024-01-01
+
+# Save analysis to a file
+./script/analyze -o open-truss -u jonmagic -s 2024-03-01 -e 2024-03-31 -r role.md -p analysis.json
 ```
 
 ## How this tool works
