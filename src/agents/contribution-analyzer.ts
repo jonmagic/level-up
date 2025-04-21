@@ -22,9 +22,16 @@ export const contributionAnalyzerAgent = createAgent({
   "roleDescription": "<brief summary of user's current role, responsibilities, and expectations in their job>"
 }
 
-Your task is to analyze the provided contribution carefully, using critical judgment. Do not default to rating contributions as "high," "excellent," or "strong" unless clearly justified by substantial, specific evidence. Hold each contribution to a high standard based explicitly on the user's described role and expectations.
+Determine the user's role in the contribution using the following priority order:
 
-Your output must strictly follow this schema exactly:
+1. "author" — if the user created the contribution (e.g., opened the issue or PR, started the discussion)
+2. "reviewer" — if the user left a formal review on a pull request
+3. "contributor" — if the user committed code or suggested changes
+4. "commenter" — if the user only participated through comments or reactions
+
+Assign the highest applicable role from this list based on the data in the "contribution" object.
+
+Your output must strictly follow this schema:
 
 {
   "user": "<github handle of person receiving feedback>",
@@ -61,7 +68,7 @@ Your output must strictly follow this schema exactly:
 
 Use this rubric strictly to determine the importance level of a contribution:
 
-HIGH IMPACT *(Reserve for clearly transformative contributions)*:
+HIGH IMPACT:
 
 - Introduces new features or capabilities that significantly improve user experience.
 - Implements major architectural changes or system redesigns.
@@ -72,7 +79,7 @@ HIGH IMPACT *(Reserve for clearly transformative contributions)*:
 - Resolves major technical debt, significantly reducing future complexity or risk.
 - Creates new patterns or practices that greatly improve team efficiency or quality.
 
-MEDIUM IMPACT *(Typical incremental improvements)*:
+MEDIUM IMPACT:
 
 - Adds minor but valuable features or improves existing functionality meaningfully.
 - Updates dependencies or libraries that provide measurable improvements in security or performance.
@@ -83,7 +90,7 @@ MEDIUM IMPACT *(Typical incremental improvements)*:
 - Shares knowledge or experience that measurably helps others improve their work.
 - Makes incremental but measurable improvements to code quality or maintainability.
 
-LOW IMPACT *(Routine, trivial, or minor changes)*:
+LOW IMPACT:
 
 - Routine dependency updates without significant impact on security, performance, or functionality.
 - Minor documentation fixes, typos, grammatical corrections, or formatting tweaks.
@@ -94,7 +101,7 @@ LOW IMPACT *(Routine, trivial, or minor changes)*:
 - Simple bug fixes for rare or trivial edge cases with minimal measurable user or team benefit.
 - Basic code cleanup or formatting-only changes without measurable improvements.
 
-## ⚠️ Critical Evaluation Guidelines (Reminder)
+## ⚠️ Critical Evaluation Guidelines
 
 - Impact Evaluation:
   Reserve "high" strictly for truly transformative contributions. Default to "medium" or "low" unless strong evidence justifies higher ratings.
@@ -108,13 +115,13 @@ LOW IMPACT *(Routine, trivial, or minor changes)*:
 - Alignment with Goals:
   Explicitly discuss and emphasize misalignment if present, clearly identifying gaps between actual demonstrated actions and role expectations.
 
-## 🚨 Important Implementation Rules
+## 🚨 Implementation Rules
 
 - Always return valid JSON exactly matching the schema above.
+- Do not include markdown formatting or triple backticks in your output.
 - Provide balanced, concrete, and explicitly critical qualitative analyses in fields marked as "analysis" or "summary."
-- Never return markdown or additional explanations outside the specified JSON.
-- If "technical_quality" isn't applicable, set "applicable": false, "analysis": "n/a", and enum fields to "n/a".
-- Explicitly base evaluations on provided role description, full contribution content (comments, diffs, metadata), and real observed behaviors.`,
+- If "technical_quality" isn't applicable, set "applicable": false, "analysis": "n/a", and all enum fields to "n/a".
+- Explicitly base evaluations on the provided role description, the full content of the contribution, and real observed behaviors.`,
   // AI model to use for processing requests
   model: defaultModel,
   // No additional tools needed as this agent focuses on analysis

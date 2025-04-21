@@ -37,57 +37,20 @@ interface GitHubSearchResponse extends GitHubResponse {
   }
 }
 
+// Interface for a conversation
+interface Conversation {
+  title: string
+  url: string
+  created_at: string
+  updated_at: string
+  type: 'issue' | 'pull_request' | 'discussion'
+  role: 'author' | 'reviewer' | 'contributor' | 'commenter'
+}
+
 // Interface for search contributions result
 // Defines the structure of the result returned by the tool
 export interface SearchContributionsResult {
-  authored: {
-    issues: Array<{
-      title: string
-      url: string
-      created_at: string
-      updated_at: string
-    }>
-    pull_requests: Array<{
-      title: string
-      url: string
-      created_at: string
-      updated_at: string
-    }>
-    discussions: Array<{
-      title: string
-      url: string
-      created_at: string
-      updated_at: string
-    }>
-  }
-  commented: {
-    issues: Array<{
-      title: string
-      url: string
-      created_at: string
-      updated_at: string
-    }>
-    pull_requests: Array<{
-      title: string
-      url: string
-      created_at: string
-      updated_at: string
-    }>
-    discussions: Array<{
-      title: string
-      url: string
-      created_at: string
-      updated_at: string
-    }>
-  }
-  reviewed: {
-    pull_requests: Array<{
-      title: string
-      url: string
-      created_at: string
-      updated_at: string
-    }>
-  }
+  conversations: Conversation[]
   summary: string
 }
 
@@ -206,38 +169,66 @@ export const searchContributions = createTool({
     const rawReviewedIssues = await fetchAllPages(issueQuery, reviewedSearchQuery)
 
     // Process and format the results
-    const processNodes = (nodes: any[], type: string) => nodes
+    const processNodes = (nodes: any[], type: string, role: 'author' | 'reviewer' | 'contributor' | 'commenter') => nodes
       .filter(node => node.__typename === type)
       .map(node => ({
         title: node.title,
         url: node.url,
         created_at: node.createdAt,
-        updated_at: node.updatedAt
+        updated_at: node.updatedAt,
+        type: type.toLowerCase() === 'pullrequest' ? 'pull_request' : type.toLowerCase() as 'issue' | 'pull_request' | 'discussion',
+        role
       }))
 
-    const authoredIssues = processNodes(rawAuthoredIssues, 'Issue')
-    const authoredPullRequests = processNodes(rawAuthoredIssues, 'PullRequest')
-    const authoredDiscussions = processNodes(rawAuthoredDiscussions, 'Discussion')
-    const commentedIssues = processNodes(rawCommentedIssues, 'Issue')
-    const commentedPullRequests = processNodes(rawCommentedIssues, 'PullRequest')
-    const commentedDiscussions = processNodes(rawCommentedDiscussions, 'Discussion')
-    const reviewedPullRequests = processNodes(rawReviewedIssues, 'PullRequest')
+    // Create arrays of conversations with their roles
+    const authoredIssues = processNodes(rawAuthoredIssues, 'Issue', 'author')
+    const authoredPullRequests = processNodes(rawAuthoredIssues, 'PullRequest', 'author')
+    const authoredDiscussions = processNodes(rawAuthoredDiscussions, 'Discussion', 'author')
+    const commentedIssues = processNodes(rawCommentedIssues, 'Issue', 'commenter')
+    const commentedPullRequests = processNodes(rawCommentedIssues, 'PullRequest', 'commenter')
+    const commentedDiscussions = processNodes(rawCommentedDiscussions, 'Discussion', 'commenter')
+    const reviewedPullRequests = processNodes(rawReviewedIssues, 'PullRequest', 'reviewer')
+
+    // Combine all conversations
+    const allConversations = [
+      ...authoredIssues,
+      ...authoredPullRequests,
+      ...authoredDiscussions,
+      ...commentedIssues,
+      ...commentedPullRequests,
+      ...commentedDiscussions,
+      ...reviewedPullRequests
+    ]
+
+    // Create a map to store unique conversations by URL
+    const uniqueConversations = new Map<string, Conversation>()
+
+    // Merge conversations with the same URL, using role priority
+    for (const conversation of allConversations) {
+      const existing = uniqueConversations.get(conversation.url)
+      if (existing) {
+        // Determine the highest priority role
+        const rolePriority = {
+          author: 4,
+          reviewer: 3,
+          contributor: 2,
+          commenter: 1
+        }
+
+        if (rolePriority[conversation.role] > rolePriority[existing.role]) {
+          existing.role = conversation.role
+        }
+      } else {
+        uniqueConversations.set(conversation.url, conversation)
+      }
+    }
+
+    // Convert map back to array
+    const conversations = Array.from(uniqueConversations.values())
 
     const result: SearchContributionsResult = {
-      authored: {
-        issues: authoredIssues,
-        pull_requests: authoredPullRequests,
-        discussions: authoredDiscussions
-      },
-      commented: {
-        issues: commentedIssues,
-        pull_requests: commentedPullRequests,
-        discussions: commentedDiscussions
-      },
-      reviewed: {
-        pull_requests: reviewedPullRequests
-      },
-      summary: `Found ${authoredIssues.length} authored issues, ${authoredPullRequests.length} authored PRs, ${authoredDiscussions.length} authored discussions, ${commentedIssues.length} commented issues, ${commentedPullRequests.length} commented PRs, ${commentedDiscussions.length} commented discussions, and ${reviewedPullRequests.length} reviewed PRs by ${author} between ${since} and ${until}.`
+      conversations,
+      summary: `Found ${conversations.length} unique conversations by ${author} between ${since} and ${until}.`
     }
 
     logger.debug('\nSearch Contributions Tool - Final Result:', JSON.stringify(result, null, 2))

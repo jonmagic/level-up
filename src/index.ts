@@ -142,92 +142,21 @@ async function main() {
       try {
         const { data } = toolCall.content as { data: SearchContributionsResult }
 
-        // Combine all contribution types into a single array with type information
-        contributions = [
-          // Authored contributions
-          ...data.authored.issues.map(issue => {
-            const { owner, name, number } = extractRepoInfo(issue.url)
-            return {
-              title: issue.title,
-              url: issue.url,
-              type: 'issue' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: issue.updated_at
-            }
-          }),
-          ...data.authored.pull_requests.map(pr => {
-            const { owner, name, number } = extractRepoInfo(pr.url)
-            return {
-              title: pr.title,
-              url: pr.url,
-              type: 'pull_request' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: pr.updated_at
-            }
-          }),
-          ...data.authored.discussions.map(discussion => {
-            const { owner, name, number } = extractRepoInfo(discussion.url)
-            return {
-              title: discussion.title,
-              url: discussion.url,
-              type: 'discussion' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: discussion.updated_at
-            }
-          }),
-          // Commented contributions
-          ...data.commented.issues.map(issue => {
-            const { owner, name, number } = extractRepoInfo(issue.url)
-            return {
-              title: issue.title,
-              url: issue.url,
-              type: 'issue' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: issue.updated_at
-            }
-          }),
-          ...data.commented.pull_requests.map(pr => {
-            const { owner, name, number } = extractRepoInfo(pr.url)
-            return {
-              title: pr.title,
-              url: pr.url,
-              type: 'pull_request' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: pr.updated_at
-            }
-          }),
-          ...data.commented.discussions.map(discussion => {
-            const { owner, name, number } = extractRepoInfo(discussion.url)
-            return {
-              title: discussion.title,
-              url: discussion.url,
-              type: 'discussion' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: discussion.updated_at
-            }
-          }),
-          // Reviewed PRs
-          ...data.reviewed.pull_requests.map(pr => {
-            const { owner, name, number } = extractRepoInfo(pr.url)
-            return {
-              title: pr.title,
-              url: pr.url,
-              type: 'pull_request' as const,
-              number,
-              repository: { owner, name },
-              updatedAt: pr.updated_at
-            }
-          })
-        ]
+        // Process each unique conversation
+        contributions = data.conversations.map(conversation => {
+          const { owner, name, number } = extractRepoInfo(conversation.url)
+          return {
+            title: conversation.title,
+            url: conversation.url,
+            type: conversation.type,
+            number,
+            repository: { owner, name },
+            updatedAt: conversation.updated_at
+          }
+        })
 
         if (contributions.length > 0) {
-          logger.debug(`Found ${contributions.length} contributions to analyze:`)
+          logger.debug(`Found ${contributions.length} unique conversations to analyze:`)
           for (const contribution of contributions) {
             logger.debug(`- ${contribution.title} (${contribution.url})`)
           }
