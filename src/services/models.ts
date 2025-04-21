@@ -3,7 +3,7 @@
 // for use throughout the application. It supports both OpenAI and Azure OpenAI
 // endpoints, with environment-based configuration for flexibility.
 
-import { openai, azureOpenai } from '@inngest/agent-kit'
+import { openai } from '@inngest/agent-kit'
 import { env } from '../config.js'
 
 // OpenAI model configuration
@@ -18,15 +18,15 @@ export const openaiModel = openai({
 // Creates an Azure-specific OpenAI client with additional configuration
 // for Azure's deployment and endpoint requirements. This is the preferred
 // configuration for production environments.
-export const azureOpenaiModel = azureOpenai({
-  apiKey: env.azureOpenai.apiKey,
-  model: env.azureOpenai.model,
-  endpoint: env.azureOpenai.endpoint,
-  deployment: env.azureOpenai.deployment,
-  apiVersion: env.azureOpenai.apiVersion,
-})
+// export const azureOpenaiModel = azureOpenai({
+//   apiKey: env.azureOpenai.apiKey,
+//   model: env.azureOpenai.model,
+//   endpoint: env.azureOpenai.endpoint,
+//   deployment: env.azureOpenai.deployment,
+//   apiVersion: env.azureOpenai.apiVersion,
+// })
 
 // Default model export
 // Azure OpenAI is set as the default model for the application
 // This can be changed based on environment or requirements
-export const defaultModel = azureOpenaiModel
+export const defaultModel = openaiModel
