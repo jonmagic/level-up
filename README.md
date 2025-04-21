@@ -108,3 +108,57 @@ This multi-agent approach allows for:
 - Detailed, context-aware analysis
 - Consistent evaluation using standardized rubrics
 - Actionable feedback aligned with role expectations
+
+## Roadmap
+
+We have exciting plans to enhance Level Up and make it even more valuable for users and contributors. Here's what's coming:
+
+### Phase 1: Testing & Stability
+- Implement comprehensive test coverage for all agents and tools
+- Add automated testing for the analysis pipeline
+- Improve error handling and validation
+- Document testing practices for contributors
+
+### Phase 2: Interactive Chat Experience
+- Add a conversational interface for interacting with contribution data
+- Enable real-time analysis of individual contributions
+- Support dynamic search parameter adjustments
+- Implement chat-based summary analysis
+
+### Phase 3: Advanced Agent Architecture
+- Transition to a more flexible agent-based system
+- Implement dynamic routing between agents
+- Add decision-making capabilities to agents
+- Improve agent collaboration and communication
+
+### How to Contribute
+
+We welcome contributions from the community! Here are some ways you can help:
+
+1. **Testing & Documentation**
+   - Write tests for existing functionality
+   - Improve documentation and examples
+   - Add usage guides and best practices
+
+2. **Feature Development**
+   - Help implement the chat interface
+   - Contribute to the agent architecture
+   - Add new analysis capabilities
+
+3. **Bug Fixes & Improvements**
+   - Report and fix bugs
+   - Optimize performance
+   - Enhance error handling
+
+To get started:
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request with your changes
+
+### Future Possibilities
+
+We're exploring several exciting directions for Level Up:
+
+- **Custom Rubrics**: Allow users to define their own evaluation criteria
+- **Growth Plan**: Build out a growth plan based on your analysis
+- **Team Analysis**: Extend the tool to analyze team contributions and dynamics
