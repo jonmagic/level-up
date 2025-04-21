@@ -8,11 +8,12 @@ import { contributionAnalyzerAgent } from './agents/contribution-analyzer.js'
 import { fetcherAgent } from './agents/fetcher.js'
 import { SearchContributionsResult } from './tools/search-contributions.js'
 import { logger } from './services/logger.js'
-import { AnalysisCacheService, type AnalysisData } from './services/analysis-cache.js'
+import { AnalysisCacheService, type AnalysisData, type CacheEntry } from './services/analysis-cache.js'
 import { summaryAnalyzerAgent } from './agents/summary-analyzer.js'
 import { parseArgs } from './cli.js'
 import { type ExecutiveSummary } from './types/summary.js'
 import { type PullRequestContribution, type IssueContribution, type DiscussionContribution } from './types/contributions.js'
+import fs from 'fs/promises'
 
 // Type definitions
 type RepoInfo = {
@@ -187,55 +188,60 @@ async function main() {
     logger.debug(`Repository: ${contribution.repository.owner}/${contribution.repository.name}`)
     logger.debug(`Number: ${contribution.number}`)
 
-    let fetcherResult
-    try {
-      // Use the fetcher agent to get detailed contribution data
-      const fetchPrompt = `Fetch the contribution at ${contribution.url} with updatedAt ${contribution.updatedAt}`
-      logger.info(fetchPrompt)
-      fetcherResult = await fetcherAgent.run(fetchPrompt)
-    } catch (error) {
-      logger.error(`Failed to fetch contribution "${contribution.title}":`, error as Error)
-      logger.error('Error details:', JSON.stringify(error, null, 2))
-      continue
-    }
-
-    // Extract the contribution data from the tool result
-    let detailedContribution: DetailedContribution | undefined
-    for (const toolCall of fetcherResult.toolCalls) {
-      logger.debug('Tool call:', JSON.stringify(toolCall, null, 2))
-      if (toolCall.role === 'tool_result' && toolCall.content) {
-        const content = toolCall.content as DetailedContribution
-        detailedContribution = content
-        logger.debug('Found detailed contribution:', JSON.stringify(detailedContribution, null, 2))
-        break
-      }
-    }
-
-    if (!detailedContribution) {
-      logger.error(`Failed to extract details for ${contribution.type} ${contribution.number}`)
-      logger.error('Tool calls:', JSON.stringify(fetcherResult.toolCalls, null, 2))
-      continue
-    }
-
     // Check analysis cache first
     let analysisData: AnalysisData | null = null
-    const cachedAnalysis = await analysisCache.get(
-      contribution.repository.owner,
-      contribution.repository.name,
-      contribution.type,
-      contribution.number
-    )
+    let detailedContribution: DetailedContribution | undefined
+    const cachePath = analysisCache.getCachePath(user, contribution.repository.owner, contribution.repository.name, contribution.type, contribution.number)
 
-    if (cachedAnalysis) {
-      logger.debug('Using cached analysis:')
-      logger.debug('----------------')
-      logger.debug('\n' + JSON.stringify(cachedAnalysis, null, 2))
-      analysisData = cachedAnalysis
-    } else {
+    try {
+      // Try to read the cache file directly to check the updatedAt timestamp
+      const cacheData = await fs.readFile(cachePath, 'utf-8')
+      const cacheEntry = JSON.parse(cacheData) as CacheEntry
+
+      // Only use cached data if it's not older than the conversation's last update
+      if (new Date(cacheEntry.updatedAt) >= new Date(contribution.updatedAt)) {
+        logger.debug('Using cached analysis (up to date):')
+        logger.debug('----------------')
+        logger.debug('\n' + JSON.stringify(cacheEntry.data, null, 2))
+        analysisData = cacheEntry.data
+      }
+    } catch (error) {
+      // Cache miss or error - we'll proceed with fetching
+    }
+
+    if (!analysisData) {
+      let fetcherResult
+      try {
+        // Use the fetcher agent to get detailed contribution data
+        const fetchPrompt = `Fetch the contribution at ${contribution.url} with updatedAt ${contribution.updatedAt}`
+        logger.info(fetchPrompt)
+        fetcherResult = await fetcherAgent.run(fetchPrompt)
+      } catch (error) {
+        logger.error(`Failed to fetch contribution "${contribution.title}":`, error as Error)
+        logger.error('Error details:', JSON.stringify(error, null, 2))
+        continue
+      }
+
+      // Extract the contribution data from the tool result
+      for (const toolCall of fetcherResult.toolCalls) {
+        logger.debug('Tool call:', JSON.stringify(toolCall, null, 2))
+        if (toolCall.role === 'tool_result' && toolCall.content) {
+          const content = toolCall.content as DetailedContribution
+          detailedContribution = content
+          logger.debug('Found detailed contribution:', JSON.stringify(detailedContribution, null, 2))
+          break
+        }
+      }
+
+      if (!detailedContribution) {
+        logger.error(`Failed to extract details for ${contribution.type} ${contribution.number}`)
+        logger.error('Tool calls:', JSON.stringify(fetcherResult.toolCalls, null, 2))
+        continue
+      }
+
       let analysis
       try {
         // Analyze the contribution using our detailed analyzer
-        const cachePath = analysisCache.getCachePath(user, contribution.repository.owner, contribution.repository.name, contribution.type, contribution.number)
         logger.info(`Generating contribution analysis ${cachePath}`)
 
         // Analyze the specific contribution
@@ -296,7 +302,7 @@ async function main() {
 
     if (analysisData) {
       // Only add pull requests that are merged or closed
-      if (detailedContribution.data.type === 'pull_request') {
+      if (detailedContribution?.data.type === 'pull_request') {
         if (detailedContribution.data.state === 'merged' || detailedContribution.data.state === 'closed') {
           analyses.push(analysisData)
         }

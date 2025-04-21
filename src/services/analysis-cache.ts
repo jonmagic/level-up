@@ -57,7 +57,7 @@ export interface AnalysisData {
 }
 
 // Cache entry type
-interface CacheEntry {
+export interface CacheEntry {
   data: AnalysisData
   updatedAt: string
   cachedAt: string
