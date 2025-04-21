@@ -1,6 +1,6 @@
 # Level Up
 
-This is an AI application for gathering contributions for an individual for a given time period and turning that data into feedback to help them level up. Use it for yourself. Use it for a teammate. **Level Up...**
+This is an AI application for gathering GitHub contributions for an individual for a given time period and turning that data into feedback to help them level up. Use it for yourself. Use it for a teammate. _It's time to level up._
 
 ## Installation
 
@@ -46,25 +46,65 @@ Run the analyzer using the provided script:
 ./script/analyze -o open-truss -u jonmagic -s 2024-03-01 -e 2024-03-31 -r role.md -p analysis.json
 ```
 
-## How this tool works
+## Agents and Tools
 
-1. Searches GitHub for contributions made by an individual.
-2. Fetches all of the details for each contribution separately.
-3. Analyzes all of the details for each contribution based on the role of individual being reviewed (author, commentor, reviewer, etc) and generates a SWOT for that individual.
-4. Summarizes all of the SWOT into a single piece of feedback focusing on what is going well and where they could focus to have a larger impact.
+The application uses a series of specialized AI agents and tools to analyze GitHub contributions:
 
-## LLM Instructions
+### Agents
 
-Your coding assistant should fetch these urls to understand all of the available APIs:
-- https://raw.githubusercontent.com/motdotla/dotenv/refs/heads/master/README.md
-- https://raw.githubusercontent.com/octokit/graphql.js/refs/heads/main/README.md
-- https://agentkit.inngest.com/llms-full.txt
+1. **Search Agent** (`search.ts`)
+   - Specialized in finding GitHub contributions within a specified time range
+   - Uses the `search_contributions` tool to query GitHub's GraphQL API
+   - Returns a structured list of issues, pull requests, and discussions
 
-## Agents
+2. **Fetcher Agent** (`fetcher.ts`)
+   - Retrieves detailed information about each contribution
+   - Uses specialized tools (`fetch-issue`, `fetch-pull-request`, `fetch-discussion`) to get full context
+   - Handles caching of contribution data to optimize performance
 
-- Agent for search contributions of a user on GitHub. For now this agent will focus on issues created by a specific author for a given time period.
-- Agent for analyzing a contribution to determine what is good and what can be improved. For now focus on analyzing the title of the contribution.
+3. **Contribution Analyzer Agent** (`contribution-analyzer.ts`)
+   - Analyzes individual contributions in detail
+   - Evaluates impact, technical quality, collaboration, and alignment with role expectations
+   - Provides structured feedback in JSON format
+   - Uses a comprehensive rubric for consistent evaluation
 
-## Services
+4. **Summary Analyzer Agent** (`summary-analyzer.ts`)
+   - Synthesizes multiple contribution analyses into a comprehensive report
+   - Identifies key strengths, areas for improvement, and standout contributions
+   - Generates metrics and trends from the analyzed contributions
+   - Provides actionable feedback aligned with role expectations
 
-- Service for fetching data from GitHub including searching for Issues, Pull Requests, and Discussions. Later this should include the ability to fetch comments, review comments, diffs, and discussion comment replies.
+### Tools
+
+1. **Search Contributions** (`search-contributions.ts`)
+   - GraphQL-based tool for searching GitHub contributions
+   - Handles pagination and rate limiting
+   - Returns structured data about issues, PRs, and discussions
+
+2. **Fetch Issue** (`fetch-issue.ts`)
+   - Retrieves detailed information about GitHub issues
+   - Includes comments, labels, and metadata
+   - Implements caching for performance optimization
+
+3. **Fetch Pull Request** (`fetch-pull-request.ts`)
+   - Gets comprehensive data about pull requests
+   - Includes reviews, comments, and code changes
+   - Handles caching and rate limiting
+
+4. **Fetch Discussion** (`fetch-discussion.ts`)
+   - Retrieves detailed information about GitHub discussions
+   - Includes comments, answers, and metadata
+   - Implements caching for efficiency
+
+### Flow
+
+1. The Search Agent finds all relevant contributions within the specified time range
+2. The Fetcher Agent retrieves detailed information for each contribution
+3. The Contribution Analyzer Agent evaluates each contribution individually
+4. The Summary Analyzer Agent synthesizes all analyses into a comprehensive report
+
+This multi-agent approach allows for:
+- Efficient data gathering and caching
+- Detailed, context-aware analysis
+- Consistent evaluation using standardized rubrics
+- Actionable feedback aligned with role expectations
