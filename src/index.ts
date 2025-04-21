@@ -274,20 +274,37 @@ async function main() {
 
     if (!analysisData) {
       let analysis
-      try {
-        // Analyze the contribution using our detailed analyzer
-        logger.info(`Generating contribution analysis ${cachePath}`)
+      let retryCount = 0
+      const maxRetries = 3
 
-        // Analyze the specific contribution
-        const analysisInput = {
-          user,
-          contribution: detailedContribution,
-          roleDescription: roleDescriptionText
+      while (retryCount < maxRetries) {
+        try {
+          // Validate detailedContribution before proceeding
+          if (!detailedContribution?.data) {
+            throw new Error('Invalid contribution data structure')
+          }
+
+          // Analyze the contribution using our detailed analyzer
+          logger.info(`Generating contribution analysis ${cachePath} (attempt ${retryCount + 1}/${maxRetries})`)
+
+          // Analyze the specific contribution
+          const analysisInput = {
+            user,
+            contribution: detailedContribution,
+            roleDescription: roleDescriptionText
+          }
+          analysis = await contributionAnalyzerAgent.run(JSON.stringify(analysisInput, null, 2))
+          break // Success, exit retry loop
+        } catch (error) {
+          retryCount++
+          if (retryCount === maxRetries) {
+            logger.error(`Failed to analyze contribution "${contribution.title}" after ${maxRetries} attempts:`, error as Error)
+            continue
+          }
+          logger.warn(`Retry ${retryCount}/${maxRetries} for contribution "${contribution.title}":`, error as Error)
+          // Add a small delay between retries
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount))
         }
-        analysis = await contributionAnalyzerAgent.run(JSON.stringify(analysisInput, null, 2))
-      } catch (error) {
-        logger.error(`Failed to analyze contribution "${contribution.title}":`, error as Error)
-        continue
       }
 
       logger.debug('Analysis Results:')
