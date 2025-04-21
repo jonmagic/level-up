@@ -381,12 +381,12 @@ async function main() {
   if (analyses.length > 0) {
     logger.info(`Generating summary feedback from ${analyses.length} contributions...`)
     try {
-      const roleMetrics = countRoles(analyses)
+      const contributionMetrics = countRoles(analyses)
       const summaryInput = {
         user,
         analyses,
-        roleDescription: roleDescriptionText,
-        roleMetrics
+        role_description: roleDescriptionText,
+        contribution_metrics: contributionMetrics
       }
       const result = await summaryAnalyzerAgent.run(JSON.stringify(summaryInput, null, 2))
       const lastMessage = result.output[result.output.length - 1]
