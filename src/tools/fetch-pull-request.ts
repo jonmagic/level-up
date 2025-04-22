@@ -78,7 +78,7 @@ export const fetchPullRequest = createTool({
 
     // Clear analysis cache since we're fetching fresh data
     const analysisCache = AnalysisCacheService.getInstance()
-    await analysisCache.clear(owner, repo, 'pull')
+    await analysisCache.clearContribution(owner, repo, 'pull', number)
     logger.debug('Cleared analysis cache for pull request:', { owner, repo, number })
 
     const query = `

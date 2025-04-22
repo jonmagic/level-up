@@ -159,4 +159,17 @@ export class AnalysisCacheService {
       // Path doesn't exist, that's fine
     }
   }
+
+  async clearContribution(owner: string, repo: string, type: string, number: number): Promise<void> {
+    if (!this.user) {
+      throw new Error('User must be set before using AnalysisCacheService')
+    }
+
+    const cachePath = this.getCachePath(this.user, owner, repo, type, number)
+    try {
+      await fs.unlink(cachePath)
+    } catch (error) {
+      // File doesn't exist, that's fine
+    }
+  }
 }
