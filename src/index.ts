@@ -113,7 +113,7 @@ async function main() {
   logger.debug('Initializing contribution analysis process')
 
   // Parse command line arguments
-  const { organization, user, startDate, endDate, roleDescription, outputPath } = parseArgs()
+  const { organization, user, startDate, endDate, roleDescription, outputPath, notes } = parseArgs()
 
   // Read role description file
   let roleDescriptionText: string
