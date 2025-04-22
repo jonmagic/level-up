@@ -144,7 +144,7 @@ async function main() {
 - author: ${user}
 - since: ${startDateISO}
 - until: ${endDateISO}
-- limit: 500`
+- limit: 5000`
     logger.info(searchPrompt)
     searchResult = await searchAgent.run(searchPrompt)
   } catch (error) {
