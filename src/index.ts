@@ -125,6 +125,18 @@ async function main() {
     return
   }
 
+  // Read notes file if provided
+  let notesText: string | undefined
+  if (notes) {
+    try {
+      notesText = await readFile(notes, 'utf-8')
+      logger.debug('Notes loaded successfully')
+    } catch (error) {
+      logger.error('Failed to read notes file:', error as Error)
+      return ''
+    }
+  }
+
   // Set the user in the analysis cache service
   const analysisCache = AnalysisCacheService.getInstance()
   analysisCache.setUser(user)
@@ -379,7 +391,8 @@ async function main() {
         user,
         analyses,
         role_description: roleDescriptionText,
-        contribution_metrics: contributionMetrics
+        contribution_metrics: contributionMetrics,
+        notes: notesText
       }
       const result = await summaryAnalyzerAgent.run(JSON.stringify(summaryInput, null, 2))
       const lastMessage = result.output[result.output.length - 1]

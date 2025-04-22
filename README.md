@@ -22,7 +22,8 @@ Run the analyzer using the provided script:
   --user jonmagic \
   --start-date 2024-03-01 \
   --end-date 2024-03-31 \
-  --role-description /path/to/role-description.md
+  --role-description /path/to/role-description.md \
+  --notes /path/to/individual-notes.md
 ```
 
 ### Command Line Options
@@ -32,6 +33,7 @@ Run the analyzer using the provided script:
 - `--start-date, -s`: Start date in YYYY-MM-DD format
 - `--end-date, -e`: End date in YYYY-MM-DD format
 - `--role-description, -r`: Path to a file containing the role description
+- `--notes, -n`: Optional path to a file containing additional notes about the individual and their work
 - `--output-path, -p`: Optional path to save the analysis JSON (if not provided, analysis will only be printed to console)
 - `--help, -h`: Show help message
 
@@ -41,9 +43,11 @@ Run the analyzer using the provided script:
 # Using short flags
 ./script/analyze -o open-truss -u jonmagic -s 2024-03-01 -e 2024-03-31 -r role.md
 
-
 # Save analysis to a file
 ./script/analyze -o open-truss -u jonmagic -s 2024-03-01 -e 2024-03-31 -r role.md -p analysis.json
+
+# Include additional notes about the individual
+./script/analyze -o open-truss -u jonmagic -s 2024-03-01 -e 2024-03-31 -r role.md -n notes.md -p analysis.json
 ```
 
 ## Agents and Tools
@@ -73,6 +77,7 @@ The application uses a series of specialized AI agents and tools to analyze GitH
    - Identifies key strengths, areas for improvement, and standout contributions
    - Generates metrics and trends from the analyzed contributions
    - Provides actionable feedback aligned with role expectations
+   - Incorporates additional context from optional notes about the individual
 
 ### Tools
 

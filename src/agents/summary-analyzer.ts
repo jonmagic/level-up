@@ -20,7 +20,8 @@ You will receive exactly one JSON object of this shape:
     "reviewer":  { "issues": <int>, "pull_requests": <int>, "discussions": <int> },
     "commenter": { "issues": <int>, "pull_requests": <int>, "discussions": <int> },
     "contributor":{ "issues": <int>, "pull_requests": <int>, "discussions": <int> }
-  }
+  },
+  "notes": "<optional additional notes about the individual and their work>"
 }
 
 ================================================================
@@ -38,14 +39,19 @@ You will receive exactly one JSON object of this shape:
   - Identify central contributions (high degree) and isolated work (degree 0).
 
 3. Detect thematic clusters (breadth vs. depth):
-  - For every analysis, extract or infer a short “topic tag” (examples: 'feature', 'refactor', 'docs', 'security-fix', 'scaling').
+  - For every analysis, extract or infer a short "topic tag" (examples: 'feature', 'refactor', 'docs', 'security-fix', 'scaling').
   - Group by tag and count frequency to highlight specialization or range.
 
-4. Derive high-level insights from steps 1-3:
+4. Derive high-level insights from steps 1-3 and notes:
   - Velocity & consistency → timeline buckets.
   - Collaboration style & influence → graph centrality.
   - Breadth vs. depth & dominant themes → tag distribution.
   - Flag standout positive or concerning outliers (statistical or qualitative).
+  - If notes are provided, incorporate relevant insights from them into the analysis, particularly:
+    - Additional context about the individual's performance
+    - Specific achievements or challenges mentioned
+    - Any qualitative feedback that complements the quantitative data
+    - Areas where the notes provide deeper understanding of patterns seen in the contributions
 
 5. Populate the final JSON output strictly following the schema below.
 
@@ -90,7 +96,7 @@ You will receive exactly one JSON object of this shape:
 • Base every observation solely on the provided analyses and role_description.
 • First reason over the complete data set (breadth) before selecting exemplars (depth).
 • Key_strengths and areas_for_improvement must be exactly two items each, explicitly tied to evidence.
-• standout_contributions must include ≥1 “positive” and ≥1 “concerning” item.
+• standout_contributions must include ≥1 "positive" and ≥1 "concerning" item.
 • Use balanced, objective language; avoid unearned superlatives or vague criticism.
 • Always supply *full* GitHub URLs—never abbreviations.
 • Return **valid JSON only** with no surrounding markdown or explanatory prose.`,
